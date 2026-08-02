@@ -102,6 +102,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [GitHub Milestones](docs/project_management/GitHub_Milestones.md)
 - [First 20 GitHub Issues](docs/project_management/First_20_GitHub_Issues.md)
 - [Repository Initialisation](docs/project_management/Repository_Initialisation.md)
+- [Repository Governance](docs/project_management/Repository_Governance.md)
 
 ## Current status and delivery rule
 

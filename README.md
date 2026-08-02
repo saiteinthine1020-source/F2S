@@ -98,6 +98,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Project Overview](docs/01_Project_Overview.md)
 - [Product Requirements](docs/02_Product_Requirements.md)
 - [Functional Requirements](docs/03_Functional_Requirements.md)
+- [Non-Functional Requirements](docs/04_Non_Functional_Requirements.md)
 - [User Stories](docs/05_User_Stories.md)
 - [Farming Investment Design](docs/11_Farming_Investment_Design.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)

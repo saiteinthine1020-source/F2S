@@ -17,6 +17,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Project Overview](01_Project_Overview.md) | Defines the problem, users, scope, principles, architecture direction, and success measures. | Baseline |
 | [Product Requirements](02_Product_Requirements.md) | Defines product, functional, data, security, reporting, AI, and delivery requirements. | Baseline |
 | [Functional Requirements](03_Functional_Requirements.md) | Defines traceable behaviours, priorities, dependencies, phases, and acceptance outcomes. | Baseline |
+| [Non-Functional Requirements](04_Non_Functional_Requirements.md) | Defines measurable quality, security, resilience, accessibility, and operational targets. | Baseline |
 | [User Stories](05_User_Stories.md) | Defines role-centred outcomes and negative-authorisation expectations. | Baseline |
 | [Farming Investment Design](11_Farming_Investment_Design.md) | Defines the core farming-investment concept, empty states, creation flow, calculation states, and lifecycle. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
@@ -29,7 +30,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 
 | Path | Subject | Target |
 | --- | --- | --- |
-| `docs/04_Non_Functional_Requirements.md` | Quality, security, accessibility, resilience, and operations requirements | Phase 0 |
 | `docs/06_Use_Cases.md` | End-to-end use cases and exception paths | Phase 0 |
 | `docs/07_System_Architecture.md` | Component boundaries, data flows, and deployment context | Phase 0 |
 | `docs/08_Database_Design.md` | Relational model, isolation rules, constraints, units, and money storage | Phase 0 |

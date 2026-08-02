@@ -21,6 +21,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [GitHub Milestones](project_management/GitHub_Milestones.md) | Defines all 12 delivery milestones. | Baseline |
 | [First 20 GitHub Issues](project_management/First_20_GitHub_Issues.md) | Proposes the first ordered, independently reviewable issues. | Baseline |
 | [Repository Initialisation](project_management/Repository_Initialisation.md) | Provides exact commands for local Git and GitHub initialisation. | Baseline |
+| [Repository Governance](project_management/Repository_Governance.md) | Defines issue, label, project, branch, review, merge, and branch-protection rules. | Approved |
 
 ## Required document roadmap
 

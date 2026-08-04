@@ -104,6 +104,8 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [System Architecture](docs/07_System_Architecture.md)
 - [Farming Investment Design](docs/11_Farming_Investment_Design.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)
+- [ADR-002: Use PostgreSQL](docs/adr/ADR-002-use-postgresql.md)
+- [ADR-008: Use Decimal-Safe Financial Numeric Storage](docs/adr/ADR-008-safe-financial-numeric-storage.md)
 - [GitHub Milestones](docs/project_management/GitHub_Milestones.md)
 - [First 20 GitHub Issues](docs/project_management/First_20_GitHub_Issues.md)
 - [Repository Initialisation](docs/project_management/Repository_Initialisation.md)

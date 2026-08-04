@@ -20,6 +20,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Non-Functional Requirements](04_Non_Functional_Requirements.md) | Defines measurable quality, security, resilience, accessibility, and operational targets. | Baseline |
 | [User Stories](05_User_Stories.md) | Defines role-centred outcomes and negative-authorisation expectations. | Baseline |
 | [End-to-End Use Cases](06_Use_Cases.md) | Defines critical normal, alternate, failure, recovery, audit, and isolation workflows. | Baseline |
+| [System Architecture](07_System_Architecture.md) | Defines context, containers, module ownership, contracts, dependencies, transactions, and trust boundaries. | Baseline |
 | [Farming Investment Design](11_Farming_Investment_Design.md) | Defines the core farming-investment concept, empty states, creation flow, calculation states, and lifecycle. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
 | [GitHub Milestones](project_management/GitHub_Milestones.md) | Defines all 12 delivery milestones. | Baseline |
@@ -31,7 +32,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 
 | Path | Subject | Target |
 | --- | --- | --- |
-| `docs/07_System_Architecture.md` | Component boundaries, data flows, and deployment context | Phase 0 |
 | `docs/08_Database_Design.md` | Relational model, isolation rules, constraints, units, and money storage | Phase 0 |
 | `docs/09_API_Design.md` | REST conventions, versioning, errors, pagination, and authorisation | Phase 0 |
 | `docs/10_UI_UX_Design.md` | Shan-first mobile UX, accessibility, and responsive states | Phase 0 |

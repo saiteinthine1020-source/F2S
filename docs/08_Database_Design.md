@@ -65,18 +65,30 @@ erDiagram
 ```mermaid
 erDiagram
     HOUSEHOLDS ||--o{ FINANCIAL_EVENTS : owns
-    FINANCIAL_EVENTS o|--o| FINANCIAL_EVENTS : reverses
     HOUSEHOLDS ||--o{ FARMING_INVESTMENTS : owns
+    HOUSEHOLDS ||--o{ FARM_COSTS : owns
+    HOUSEHOLDS ||--o{ DEBTS : owns
+    HOUSEHOLDS ||--o{ RECEIVABLES : owns
+    HOUSEHOLDS ||--o{ REMITTANCES : owns
+
+    FARM_COSTS ||--|{ FARM_COST_ALLOCATIONS : distributes
     FARMING_INVESTMENTS ||--o{ FARM_COST_ALLOCATIONS : receives
-    FARM_COSTS ||--|{ FARM_COST_ALLOCATIONS : allocates
-    FINANCIAL_EVENTS ||--o| FARM_COSTS : funds
+    FARM_COSTS o|--o| FINANCIAL_EVENTS : may_post
+
     FARMING_INVESTMENTS ||--o{ HARVESTS : produces
-    FARMING_INVESTMENTS ||--o{ CROP_SALES : sells
-    CROP_SALES ||--o| RECEIVABLES : creates
+    FARMING_INVESTMENTS ||--o{ CROP_SALES : records
+
+    CROP_SALES o|--o| RECEIVABLES : may_create
     RECEIVABLES ||--o{ RECEIVABLE_PAYMENTS : receives
+    FINANCIAL_EVENTS ||--o| RECEIVABLE_PAYMENTS : posts
+
     DEBTS ||--o{ DEBT_PAYMENTS : receives
-    REMITTANCES ||--|{ REMITTANCE_ALLOCATIONS : allocates
+    FINANCIAL_EVENTS ||--o| DEBT_PAYMENTS : posts
+
+    REMITTANCES ||--|{ REMITTANCE_ALLOCATIONS : distributes
 ```
+
+A financial event may reference one earlier financial event through `reverses_financial_event_id`. Under the initial correction policy, an original event may have at most one effective reversal. This self-reference is described in text because rendering the same entity twice makes the ER view appear symmetric and obscures the two roles.
 
 ```mermaid
 erDiagram

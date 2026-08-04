@@ -21,7 +21,9 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [User Stories](05_User_Stories.md) | Defines role-centred outcomes and negative-authorisation expectations. | Baseline |
 | [End-to-End Use Cases](06_Use_Cases.md) | Defines critical normal, alternate, failure, recovery, audit, and isolation workflows. | Baseline |
 | [System Architecture](07_System_Architecture.md) | Defines context, containers, module ownership, contracts, dependencies, transactions, and trust boundaries. | Baseline |
+| [Database Design](08_Database_Design.md) | Defines the conceptual relational model, ownership, relationships, constraints, indexes, lifecycle, and isolation rules. | Baseline |
 | [Farming Investment Design](11_Farming_Investment_Design.md) | Defines the core farming-investment concept, empty states, creation flow, calculation states, and lifecycle. | Baseline |
+| [Data Dictionary](21_Data_Dictionary.md) | Defines canonical business terms, entity and field meanings, states, classifications, currencies, units, and ownership. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
 | [ADR-002: Use PostgreSQL](adr/ADR-002-use-postgresql.md) | Selects the primary relational database and defines ownership, transaction, privilege, backup, and fitness rules. | Approved |
 | [ADR-008: Use Decimal-Safe Financial Numeric Storage](adr/ADR-008-safe-financial-numeric-storage.md) | Defines exact numeric types, currency, precision, scale, rounding, allocation, exchange-rate, and zero-denominator rules. | Approved |
@@ -34,7 +36,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 
 | Path | Subject | Target |
 | --- | --- | --- |
-| `docs/08_Database_Design.md` | Relational model, isolation rules, constraints, units, and money storage | Phase 0 |
 | `docs/09_API_Design.md` | REST conventions, versioning, errors, pagination, and authorisation | Phase 0 |
 | `docs/10_UI_UX_Design.md` | Shan-first mobile UX, accessibility, and responsive states | Phase 0 |
 | `docs/12_Crop_Analytics_Design.md` | Historical comparisons and transparent indicators | Phase 5 |
@@ -46,7 +47,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | `docs/18_Deployment_Design.md` | Docker, Nginx, Hetzner, SSL, and delivery topology | Phase 0/11 |
 | `docs/19_Operations_Runbook.md` | Production operation and incident procedures | Phase 11 |
 | `docs/20_Backup_Recovery.md` | Backup protection, restore, and recovery verification | Phase 11 |
-| `docs/21_Data_Dictionary.md` | Canonical business terms, fields, states, units, and formula inputs | Incremental |
 
 ## ADR roadmap
 

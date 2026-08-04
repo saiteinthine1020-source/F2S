@@ -100,6 +100,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Functional Requirements](docs/03_Functional_Requirements.md)
 - [Non-Functional Requirements](docs/04_Non_Functional_Requirements.md)
 - [User Stories](docs/05_User_Stories.md)
+- [End-to-End Use Cases](docs/06_Use_Cases.md)
 - [Farming Investment Design](docs/11_Farming_Investment_Design.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)
 - [GitHub Milestones](docs/project_management/GitHub_Milestones.md)

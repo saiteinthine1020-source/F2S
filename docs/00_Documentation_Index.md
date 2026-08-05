@@ -22,6 +22,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [End-to-End Use Cases](06_Use_Cases.md) | Defines critical normal, alternate, failure, recovery, audit, and isolation workflows. | Baseline |
 | [System Architecture](07_System_Architecture.md) | Defines context, containers, module ownership, contracts, dependencies, transactions, and trust boundaries. | Baseline |
 | [Database Design](08_Database_Design.md) | Defines the conceptual relational model, ownership, relationships, constraints, indexes, lifecycle, and isolation rules. | Baseline |
+| [REST API Design](09_API_Design.md) | Defines versioned resources, methods, formats, authorisation, pagination, idempotency, errors, and compatibility. | Baseline |
 | [Farming Investment Design](11_Farming_Investment_Design.md) | Defines the core farming-investment concept, empty states, creation flow, calculation states, and lifecycle. | Baseline |
 | [Data Dictionary](21_Data_Dictionary.md) | Defines canonical business terms, entity and field meanings, states, classifications, currencies, units, and ownership. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
@@ -36,7 +37,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 
 | Path | Subject | Target |
 | --- | --- | --- |
-| `docs/09_API_Design.md` | REST conventions, versioning, errors, pagination, and authorisation | Phase 0 |
 | `docs/10_UI_UX_Design.md` | Shan-first mobile UX, accessibility, and responsive states | Phase 0 |
 | `docs/12_Crop_Analytics_Design.md` | Historical comparisons and transparent indicators | Phase 5 |
 | `docs/13_Forecasting_Design.md` | Deterministic scenarios, assumptions, and uncertainty | Phase 5 |

@@ -122,6 +122,16 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Repository Initialisation](docs/project_management/Repository_Initialisation.md)
 - [Repository Governance](docs/project_management/Repository_Governance.md)
 
+## Repository policies
+
+- [MIT License](LICENSE)
+- [Security Policy](SECURITY.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+
+Security vulnerabilities must not be disclosed in public issues or pull requests. Follow the private reporting process in [SECURITY.md](SECURITY.md).
+
 ## Current status and delivery rule
 
 Phase 0 documentation foundation is the only active scope. The next implementation task must be selected from a GitHub Issue, must preserve the documented architecture, and must not implement a future phase prematurely.

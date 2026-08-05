@@ -41,6 +41,16 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Repository Initialisation](project_management/Repository_Initialisation.md) | Provides exact commands for local Git and GitHub initialisation. | Baseline |
 | [Repository Governance](project_management/Repository_Governance.md) | Defines issue, label, project, branch, review, merge, and branch-protection rules. | Approved |
 
+## Repository policies
+
+| Policy | Purpose | Status |
+| --- | --- | --- |
+| [MIT License](../LICENSE) | Grants explicit MIT rights under the existing 2026 copyright notice. | Approved; future changes require owner review |
+| [Security Policy](../SECURITY.md) | Defines private vulnerability reporting, coordinated disclosure, response targets, and testing boundaries. | Baseline |
+| [Contributing Guide](../CONTRIBUTING.md) | Defines issue-first workflow, privacy, architecture, validation, pull-request, AI-assistance, and licensing expectations. | Baseline |
+| [Changelog](../CHANGELOG.md) | Records notable unreleased and future versioned changes without claiming planned features are implemented. | Baseline |
+| [Code of Conduct](../CODE_OF_CONDUCT.md) | Defines participation standards, private conduct reporting, enforcement, and appeals. | Baseline |
+
 ## Required document roadmap
 
 | Path | Subject | Target |

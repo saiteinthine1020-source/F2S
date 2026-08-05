@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:18.4-trixie
+    environment:
+      POSTGRES_DB: ${F2S_POSTGRES_DB:-f2s_local}
+      POSTGRES_USER: ${F2S_POSTGRES_USER:-f2s_local_owner}
+      POSTGRES_PASSWORD: ${F2S_POSTGRES_PASSWORD:?Set F2S_POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${F2S_POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready --username="$${POSTGRES_USER}" --dbname="$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 128mb
+    stop_grace_period: 60s
+
+networks:
+  data:
+    driver: bridge
+
+volumes:
+  postgres_data:

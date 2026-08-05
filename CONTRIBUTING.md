@@ -101,6 +101,8 @@ Also verify local Markdown links, inspect every changed file and confirm that no
 
 As implementation begins, use the commands and required checks added by the owning scaffold/CI issues. Do not install or invent a substitute stack merely to claim a check passed. PostgreSQL-specific behavior must not be tested against SQLite.
 
+The Phase 0 CI commands, tool versions, controlled-failure behavior and required check names are defined in [Continuous Integration](docs/project_management/Continuous_Integration.md). Run every locally available equivalent before pushing and report unavailable checks as `NOT RUN` or `BLOCKED`.
+
 ## 8. Pull requests
 
 Open a draft pull request by default. Its description should include:

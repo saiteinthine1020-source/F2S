@@ -106,6 +106,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [REST API Design](docs/09_API_Design.md)
 - [UI/UX Design](docs/10_UI_UX_Design.md)
 - [Farming Investment Design](docs/11_Farming_Investment_Design.md)
+- [AI Design](docs/14_AI_Design.md)
 - [Security Design](docs/15_Security_Design.md)
 - [Report and Export Design](docs/16_Report_Export_Design.md)
 - [Test Strategy](docs/17_Test_Strategy.md)

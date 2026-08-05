@@ -12,7 +12,7 @@ This document creates no report generator, renderer, template, download endpoint
 
 1. Dashboard, preview, PDF, Excel, CSV, forecast, and AI preparation consume the same versioned verified dataset contracts.
 2. Report renderers format verified results; they never query source-module tables, own formulas, or widen authorised fields.
-3. Every request is authenticated, household scoped, capability checked, filter allowlisted, idempotent, auditable, and bounded.
+3. Every request is authenticated, workspace scoped, capability checked, filter allowlisted, idempotent, auditable, and bounded.
 4. Facts, calculated results, forecasts, assumptions, data quality, unavailable values, and warnings remain distinct in every format.
 5. Missing data produces an honest empty/limited report, never fabricated totals, zero-filled charts, or sample records.
 6. Currency, units, period, timezone, formula/rule version, dataset version, and generation time remain explicit.
@@ -29,7 +29,7 @@ This document creates no report generator, renderer, template, download endpoint
 | Calculation and Data Quality | Exact formulas, rounding, units, availability, quality and rule versions | File rendering or report access |
 | Query and Dashboard | Authorised composition of immutable `VerifiedReportDataset` contracts | Source mutation or format rendering |
 | Reporting and Exports | Request lifecycle, report registry, render orchestration, format validation, artifact metadata, expiry | Direct source-table queries or business recalculation |
-| File Protection | Generated storage keys, protected bytes, checksums, safe delivery, expiry/deletion interface | Report fields, filters, or household capability decisions |
+| File Protection | Generated storage keys, protected bytes, checksums, safe delivery, expiry/deletion interface | Report fields, filters, or workspace capability decisions |
 | Audit | Required safe request/generation/download/cleanup evidence | Raw report contents or access decisions |
 | UI | Filter selection, preview/status display, accessibility, download initiation | Authoritative totals, permissions, or file truth |
 
@@ -59,9 +59,9 @@ A requested format not registered for that report returns safe validation failur
 A report request identifies:
 
 - `report_type` and one `format` (`PDF`, `XLSX`, or `CSV`);
-- household path context and current actor/capability;
+- workspace path context and current actor/capability;
 - period start/end or explicit `as_of` date as defined by the report;
-- household timezone and requested supported locale;
+- workspace timezone and requested supported locale;
 - report-specific allowlisted filters;
 - archived/cancelled inclusion policy where permitted;
 - currency presentation/conversion mode where the report supports it;
@@ -73,9 +73,9 @@ Preview uses the same canonical request/filter model even when it returns synchr
 
 ### 5.2 Filter rules
 
-- Period semantics state whether start/end are inclusive and use household business dates; generation timestamp remains UTC.
+- Period semantics state whether start/end are inclusive and use workspace business dates; generation timestamp remains UTC.
 - Date ranges are validated for order and report-specific maximum span.
-- IDs for investment, crop, category, location, payment method/status, member scope, debt, receivable, and other filters are verified against the same household.
+- IDs for investment, crop, category, location, payment method/status, member scope, debt, receivable, and other filters are verified against the same workspace.
 - Unknown, duplicate, conflicting, or unsupported filters fail safely rather than being ignored.
 - Filter order is canonicalised for idempotency/fingerprint comparison; user-visible order does not change meaning.
 - Archived/cancelled/reversed records are included only when the definition and capability allow them, with status/context preserved.
@@ -87,7 +87,7 @@ Preview uses the same canonical request/filter model even when it returns synchr
 - Different currencies are grouped separately unless an approved conversion mode supplies versioned rates and one named reporting currency.
 - No renderer sums unlike currencies or units.
 - Exact decimal strings remain authoritative through the dataset; presentation quantisation follows the accepted numeric ADR and report definition.
-- Household timezone defines period boundaries/display, while source/audit/generation instants remain timezone-aware UTC.
+- Workspace timezone defines period boundaries/display, while source/audit/generation instants remain timezone-aware UTC.
 - `data_as_of` and `generated_at` are distinct.
 
 ## 6. Verified report dataset contract
@@ -97,7 +97,7 @@ The dataset is immutable and format neutral. Conceptually it contains:
 | Group | Required content |
 | --- | --- |
 | Identity | Dataset/report type and schema versions; safe internal request/dataset ID |
-| Scope | Household ID internally, authorised purpose/capability, canonical filters, period/as-of, timezone |
+| Scope | Workspace ID internally, authorised purpose/capability, canonical filters, period/as-of, timezone |
 | Provenance | Source snapshot/as-of, calculation/formula/data-quality/rule/currency-unit registry versions |
 | Locale context | Requested locale, fallback used, formatting policy; canonical values remain locale neutral |
 | Summary | Typed KPIs/results with value-or-unavailable reason, currency/unit/period and quality |
@@ -135,7 +135,7 @@ The implementation may use protected temporary serialized data or another approv
 
 ### 6.3 Shared-source reconciliation
 
-For equivalent household, period, filters, rules and as-of:
+For equivalent workspace, period, filters, rules and as-of:
 
 - dashboard/preview summary matches PDF and Excel summary exactly at declared scale;
 - Excel/CSV detail rows correspond to the same authorised table rows/order/columns;
@@ -153,7 +153,7 @@ An authorised request with no source records may return a valid empty dataset/re
 
 ### 7.2 Filtered empty
 
-The report states that no records match the selected filters and lists safe canonical filter context. It does not claim the household has no records.
+The report states that no records match the selected filters and lists safe canonical filter context. It does not claim the workspace has no records.
 
 ### 7.3 Limited or unavailable
 
@@ -223,7 +223,7 @@ If verified table data, required text, page/sheet structure, checksum, or file v
 - A visible `data_as_of`, generation/request state, locale, period, filters, quality and warning context distinguish preview from live dashboard state.
 - True/filtered empty, unavailable, degraded, failure, expired and permission-lost states follow the UI/UX design.
 - Print uses the approved PDF where exact paginated output is required. Browser-print preview may be offered only with a tested print stylesheet and the same dataset.
-- Print actions do not expose browser navigation, hidden controls, secrets, internal IDs or unrelated household context.
+- Print actions do not expose browser navigation, hidden controls, secrets, internal IDs or unrelated workspace context.
 
 ## 11. PDF specification
 
@@ -233,7 +233,7 @@ PDF is backend generated with the planned WeasyPrint document renderer and Matpl
 
 - A4 is mandatory; orientation is versioned per report/section and wide tables use an approved landscape page or repeated-column strategy.
 - Margins reserve readable header/footer space and printable-device tolerance.
-- The document includes report title/type, household-safe display context when allowed, period/as-of, canonical filters, generated UTC/local timestamp, locale, dataset/formula versions, and page numbers where relevant.
+- The document includes report title/type, workspace-safe display context when allowed, period/as-of, canonical filters, generated UTC/local timestamp, locale, dataset/formula versions, and page numbers where relevant.
 - Relevant KPIs, tables, graphs, assumptions, warnings, quality/unavailable reasons and data provenance are included.
 - Repeated table headers, sensible row/page breaks and section keep rules prevent orphaned headings, clipped rows and unreadable fragments.
 - No report is an image-only PDF; text is searchable/selectable.
@@ -349,13 +349,13 @@ Rules:
 
 - lowercase ASCII letters, digits, hyphen, underscore and period only;
 - maximum 120 characters including extension (**Provisional**);
-- no household/person name, secret, internal path, UUID unless explicitly required, control/bidi character, leading dot, trailing dot/space, path separator, drive prefix, traversal, shell metacharacter or reserved device name;
+- no workspace/person name, secret, internal path, UUID unless explicitly required, control/bidi character, leading dot, trailing dot/space, path separator, drive prefix, traversal, shell metacharacter or reserved device name;
 - extension comes from the server-selected format, never user input; and
 - `Content-Disposition` uses a safely encoded `filename`/`filename*` policy with `nosniff`.
 
 ### 15.2 Storage and atomic publication
 
-- Storage key is random/server generated and unrelated to the filename or household path.
+- Storage key is random/server generated and unrelated to the filename or workspace path.
 - Dataset/intermediate/partial bytes remain in a protected work area inaccessible to download.
 - A renderer writes to a unique temporary object, validates complete type/structure/size/checksum, then publishes metadata and availability atomically.
 - PostgreSQL stores request/artifact metadata and protected-file reference, not large report bytes.
@@ -364,12 +364,12 @@ Rules:
 
 ### 15.3 Download
 
-- Status and download recheck current session, active membership, capability, household, request/artifact ownership, `AVAILABLE` file state and expiry.
+- Status and download recheck current session, Active membership, capability, workspace, request/artifact ownership, `AVAILABLE` file state and expiry.
 - Lost permission prevents download even when the actor created the request.
 - The initial unguessable download reference expires after 5 minutes (**Provisional**) or bytes stream through an authorised endpoint.
 - Response uses HTTPS, exact media type, safe disposition/name, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
 - Reports are not stored in PWA/offline caches, browser local storage, analytics or notifications.
-- Range/resume behavior, if enabled, repeats authorisation and cannot reveal size/existence across households.
+- Range/resume behavior, if enabled, repeats authorisation and cannot reveal size/existence across workspaces.
 
 ## 16. Authorisation and privacy
 
@@ -378,8 +378,9 @@ Authorisation occurs at request creation, dataset composition, async execution, 
 - Report capability is distinct from source mutation and from audit-administration capability.
 - Definition/role field allowlists prevent a report from exposing more columns than the actor may view.
 - Restricted names, contacts, addresses, payment/bank details, references, notes and attachments are excluded by default and included only for a documented purpose/capability/report.
-- Cross-household path/body/filter/cursor/dataset/request/file substitutions return safe concealed behavior and cause no renderer/storage work.
-- Preview/status/errors/logs/audit do not reveal another household's report existence, title, filters, row/page/byte count or expiry.
+- Cross-workspace path/body/filter/cursor/dataset/request/file substitutions return safe concealed behavior and cause no renderer/storage work.
+- Preview/status/errors/logs/audit do not reveal another workspace's report existence, title, filters, row/page/byte count or expiry.
+- Contributor report requests are denied and receive no restricted totals, counts, metadata, or artifacts; official report datasets contain only Approved records.
 - No password, token, cookie, authorisation header, API key, private key, raw attachment, unmasked AI payload or internal storage path enters a report or metadata.
 - Generated artifacts inherit the maximum classification of included data and are protected accordingly.
 
@@ -389,8 +390,8 @@ Initial limits are **Provisional** until production-like measurement:
 
 | Limit | Initial value |
 | --- | --- |
-| Report/export request rate | 5 per actor per 10 minutes; 10 per household per 10 minutes |
-| Concurrent jobs | Maximum 2 per household |
+| Report/export request rate | 5 per actor per 10 minutes; 10 per workspace per 10 minutes |
+| Concurrent jobs | Maximum 2 per workspace |
 | Standard PDF generation | 30 seconds p95 on reference dataset |
 | Standard CSV generation | 30 seconds p95 on reference dataset |
 | Standard Excel generation | 60 seconds p95 on reference dataset |
@@ -402,7 +403,7 @@ Initial limits are **Provisional** until production-like measurement:
 
 Report definitions may set lower span/row/page/size limits. Estimates reject clearly excessive requests before rendering; streaming/chunking and worker resource limits prevent memory/disk exhaustion. Crossing a limit returns safe validation or async failure with no partial artifact. Backpressure queues within a measured maximum and rejects excess rather than overcommitting the server.
 
-The reference household dataset remains 100,000 finance events, 5,000 investments and 50,000 related records. Limits and timings are measured with declared filters, dataset distribution, worker concurrency, renderer versions, fonts, CPU/memory/disk and cache state.
+The reference workspace dataset remains 100,000 finance events, 5,000 investments and 50,000 related records. Limits and timings are measured with declared filters, dataset distribution, worker concurrency, renderer versions, fonts, CPU/memory/disk and cache state.
 
 ## 18. Failure and recovery contract
 
@@ -430,14 +431,14 @@ Core financial records are never changed, rolled back or locked for the duration
 
 Policy-required events include report requested, rejected, started, succeeded complete/degraded, failed, cancelled, downloaded, expired and artifact deleted/cleanup failed.
 
-Safe audit metadata may include actor, household, report type/definition version, format, canonical safe filter summary, dataset/formula version, completion quality, row/page/byte counts, checksum reference, failure code, timestamps, correlation and request/artifact safe ID. It excludes report rows/values, raw free text, credentials, headers, filesystem/storage paths and unnecessary restricted fields.
+Safe audit metadata may include actor, workspace, report type/definition version, format, canonical safe filter summary, dataset/formula version, completion quality, row/page/byte counts, checksum reference, failure code, timestamps, correlation and request/artifact safe ID. It excludes report rows/values, raw free text, credentials, headers, filesystem/storage paths and unnecessary restricted fields.
 
 ### 19.2 Operational logs/metrics
 
 - Structured logs use request/correlation/job IDs and safe stage/event codes without bodies/datasets/artifact bytes.
 - Metrics cover queue depth/age, active jobs, dataset/render/validation/storage/download duration, success/degraded/failure/cancel/expiry, output size/pages/rows, retries, cleanup age/failure and resource use.
 - Alerts cover stuck/old jobs, repeated renderer/storage failure, limit/abuse spike, cleanup backlog, disk threshold and expired-but-present bytes.
-- Cardinality is bounded; household, filename, filter values and report contents are not metric labels.
+- Cardinality is bounded; workspace, filename, filter values and report contents are not metric labels.
 
 ## 20. Retention and cleanup
 
@@ -445,7 +446,7 @@ Safe audit metadata may include actor, household, report type/definition version
 - Dataset snapshots, intermediate files and partial artifacts are deleted as soon as no longer required and no later than artifact expiry; failed/cancelled temporary bytes target deletion within 1 hour (**Provisional**).
 - Request/audit metadata follows the security retention matrix independently from artifact bytes and stores no full dataset.
 - Expiry makes download unavailable first, then cleanup deletes bytes using exact protected storage keys.
-- Cleanup is idempotent, bounded, household/purpose scoped, safe against reused/missing keys and audited minimally.
+- Cleanup is idempotent, bounded, workspace/purpose scoped, safe against reused/missing keys and audited minimally.
 - Failed deletion retries with backoff and alerts before storage risk; it never restores user-visible availability.
 - Backup policy defines whether temporary artifacts are excluded; a backup must not unintentionally extend public/download access.
 - Legal/business retention changes require classification, access, key, deletion and backup review; users are not promised immediate erasure from protected backups.
@@ -456,7 +457,7 @@ Safe audit metadata may include actor, household, report type/definition version
 | --- | --- |
 | Dataset consistency | One `REPORT_GOLDEN` filter reconciles dashboard/preview/PDF/Excel/CSV and AI projection exactly |
 | Numeric integrity | Decimal/rounding/currency/unit/FX/unavailable values and Excel round-trip safe envelope |
-| Authorisation | Two-household request/filter/job/status/cancel/dataset/file/download/expiry substitutions; no side effects |
+| Authorisation | Two-workspace request/filter/job/status/cancel/dataset/file/download/expiry substitutions; no side effects |
 | PDF | A4, pages, metadata/text/fonts/glyphs, values, tables/charts, grayscale, accessibility, visual render |
 | Excel | Opens without repair; sheets/types/formulas/tables/filters/native charts/references/print/safety/accessibility |
 | CSV | UTF-8/BOM, delimiter/CRLF/quoting, stable columns/types/order, exact values, formula-injection safety |
@@ -483,7 +484,7 @@ Issue #13 is satisfied when review confirms that:
 - Excel sheets, summaries, totals, native charts, filters, exact-value boundary and safety rules are explicit;
 - CSV is raw tabular, UTF-8/Excel-compatible, stable, locale-neutral and formula-injection safe;
 - every chart has an accessible table/summary and chart failure does not block available tabular output;
-- household authorisation, field minimisation, safe filenames/keys, traversal resistance, limits, temporary storage, protected download, audit, expiry and cleanup are defined;
+- workspace authorisation, field minimisation, safe filenames/keys, traversal resistance, limits, temporary storage, protected download, audit, expiry and cleanup are defined;
 - failure/degraded behavior never publishes invalid/partial files or affects core records;
-- examples contain no real household data; and
+- examples contain no real workspace data; and
 - no report generator, template, chart, endpoint, schema, storage resource or application code is created.

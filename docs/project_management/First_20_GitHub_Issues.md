@@ -57,14 +57,14 @@ These issues are proposed in dependency order. Each issue is a coherent, reviewa
 
 - **Milestone:** Phase 0 - Foundation and Documentation
 - **Goal:** define entities, ownership, relationships, units, timestamps, status fields, archival, and constraints.
-- **Acceptance criteria:** every core entity has a household-isolation rule; duplicate-event and historical-preservation rules are explicit.
+- **Acceptance criteria:** every core entity has a workspace-isolation rule; duplicate-event and historical-preservation rules are explicit.
 - **Out of scope:** SQLAlchemy models and Alembic migrations.
 
 ## 9. `architecture: define REST API conventions and error contract`
 
 - **Milestone:** Phase 0 - Foundation and Documentation
 - **Goal:** document `/api/v1`, resources, authorisation, pagination, filtering, idempotency, errors, and correlation IDs.
-- **Acceptance criteria:** consistent request/response and error examples exist; household checks and validation responsibilities are clear.
+- **Acceptance criteria:** consistent request/response and error examples exist; workspace checks and validation responsibilities are clear.
 - **Out of scope:** route implementation.
 
 ## 10. `design: define Shan-first mobile UI and accessibility system`
@@ -78,7 +78,7 @@ These issues are proposed in dependency order. Each issue is a coherent, reviewa
 
 - **Milestone:** Phase 0 - Foundation and Documentation
 - **Goal:** model assets, actors, trust boundaries, threats, and layered controls.
-- **Acceptance criteria:** authentication, tokens, CSRF/CORS, household isolation, uploads, exports, logging, backups, AI data, headers, and abuse controls are covered.
+- **Acceptance criteria:** authentication, opaque sessions, CSRF/CORS, workspace isolation, roles, ownership, uploads, exports, logging, backups, AI data, headers, and abuse controls are covered.
 - **Out of scope:** security-control implementation.
 
 ## 12. `testing: define test strategy and quality gates`
@@ -139,11 +139,11 @@ These issues are proposed in dependency order. Each issue is a coherent, reviewa
 
 ## 20. `backend: initialise FastAPI modular-monolith skeleton`
 
-- **Milestone:** Phase 1 - Authentication and Household
+- **Milestone:** Phase 1 - Authentication and Workspace
 - **Prerequisites:** Issues 3-19 as applicable, especially architecture, API, security, test, and local Docker designs.
 - **Goal:** create the smallest typed FastAPI skeleton that demonstrates approved boundaries, settings validation, health behaviour, and test execution.
 - **Acceptance criteria:** no business feature is implemented; package boundaries match ADR-001; tests and documented commands pass; no secret is committed.
-- **Out of scope:** users, login, household records, farming investments, or future-phase functionality.
+- **Out of scope:** users, login, workspace records, farming investments, or future-phase functionality.
 
 ## Standard issue body
 

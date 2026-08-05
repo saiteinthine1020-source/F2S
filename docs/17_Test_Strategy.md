@@ -11,7 +11,7 @@ This document creates no product test, application code, test configuration, CI 
 ## 2. Testing principles
 
 1. Tests trace to a requirement, risk, contract, defect, or milestone exit condition.
-2. Financial correctness, household isolation, privacy, and recovery receive stronger evidence than ordinary presentation details.
+2. Financial correctness, workspace isolation, privacy, and recovery receive stronger evidence than ordinary presentation details.
 3. A result is reported as passed only when the named command and assertions execute successfully against the stated commit/environment.
 4. Skipped, expected-failure, blocked, flaky, not-run, and not-applicable checks are not passed checks.
 5. Tests use synthetic deterministic data; real family/production data is prohibited outside a separately approved protected-data procedure.
@@ -110,7 +110,7 @@ Markers/tags may distinguish `unit`, `service`, `postgres`, `migration`, `api`, 
 
 ### 7.1 Prohibited data
 
-Tests, snapshots, screenshots, videos, traces, reports, database dumps, CI artifacts, documentation, and provider fixtures contain zero real household financial or personal data. Copying then `anonymising` production data is prohibited unless a separately approved protected-data procedure defines necessity, access, transformation validation, retention, and deletion.
+Tests, snapshots, screenshots, videos, traces, reports, database dumps, CI artifacts, documentation, and provider fixtures contain zero real workspace financial or personal data. Copying then `anonymising` production data is prohibited unless a separately approved protected-data procedure defines necessity, access, transformation validation, retention, and deletion.
 
 Synthetic identities use clearly artificial values such as reserved-looking UUIDs and `example.invalid` addresses. Fixtures avoid real names, phone numbers, addresses, payment references, credentials, or plausible secrets. Security-canary strings are synthetic and labelled so scanners/tests do not confuse them with usable credentials.
 
@@ -118,12 +118,12 @@ Synthetic identities use clearly artificial values such as reserved-looking UUID
 
 | Fixture pack | Purpose |
 | --- | --- |
-| `EMPTY_HOUSEHOLD` | Honest no-record state; no sample KPI/chart/project |
+| `EMPTY_WORKSPACE` | Honest no-record state; no sample KPI/chart/project |
 | `MINIMAL_VALID` | Smallest valid record/relationship for one behavior |
-| `TWO_HOUSEHOLDS` | Alpha/Beta users, roles, inactive membership, foreign identifiers for isolation |
+| `TWO_WORKSPACES` | Alpha/Beta users, all three roles, inactive membership, a multi-workspace user, and foreign identifiers for isolation |
 | `FINANCIAL_BOUNDARIES` | Exact decimal, scale, sign, currency, unit, rate, rounding, zero cases |
 | `LIFECYCLE_HISTORY` | Active/cancelled/archived/reversed/deactivated history preservation |
-| `REFERENCE_HOUSEHOLD` | Generated capacity dataset: 10 members, 10 years, 100,000 finance events, 5,000 investments, 50,000 related records |
+| `REFERENCE_WORKSPACE` | Generated capacity dataset: 10 members, 10 years, 100,000 finance events, 5,000 investments, 50,000 related records |
 | `REPORT_GOLDEN` | Versioned verified dataset for API/dashboard/PDF/Excel/CSV reconciliation |
 | `MASKING_CANARIES` | One synthetic prohibited marker per AI/log/export field and free-text edge case |
 | `OFFLINE_STATE_MACHINE` | Draft/queued/syncing/synced/failed/conflicted/expired/lost-authority entries |
@@ -134,7 +134,7 @@ Fixture packs are versioned with formula, currency/unit registry, dataset, schem
 ### 7.3 Determinism and isolation
 
 - Clock, timezone, random seed, UUID generator, provider response, and network faults are controlled where the behavior depends on them.
-- Time tests cover UTC, household timezones, date boundaries, leap days, month/year transitions, and daylight-saving changes where an enabled timezone observes them.
+- Time tests cover UTC, workspace timezones, date boundaries, leap days, month/year transitions, and daylight-saving changes where an enabled timezone observes them.
 - Tests do not depend on wall-clock sleeps, execution order, a developer's locale, shared account state, or public network availability.
 - Parallel tests use isolated database/schema/storage/browser contexts and prove no cross-worker leakage.
 - Setup and cleanup are idempotent; failure cleanup does not delete outside its explicit synthetic namespace.
@@ -205,9 +205,9 @@ Every performance/offline report records shaping tool/version and the exact tran
 
 Canonical-event fixtures span finance, farming costs, harvests, sales, remittances, debts, receivables, payments, allocations, reversals, partial payments, overpayment policy, cancellations, and archives. They prove one real-world event contributes exactly once to cash flow and relevant balances with zero unexplained smallest-unit difference.
 
-## 10. Household authorisation and isolation strategy
+## 10. Workspace authorisation and isolation strategy
 
-Every protected resource family receives positive and negative tests with at least two households, users with different roles, a multi-household user, and inactive/deactivated membership.
+Every protected resource family receives positive and negative tests with at least two workspaces, Admin, Contributor, and Advisor users, a multi-workspace user with different roles, and inactive membership.
 
 Identifier substitution covers:
 
@@ -216,9 +216,11 @@ Identifier substitution covers:
 - counts, totals, calculations, comparisons, dashboard aggregates, and data-quality results;
 - uploads, file status/preview/download, reports/exports, jobs, notifications, audit/correlation queries, and AI preparation/results;
 - idempotency keys, request fingerprints, ETags/versions, cached responses, service-worker data, and offline queues; and
-- restored backups, migrations, role changes, household switching, logout, and deactivation.
+- restored backups, migrations, role changes, ownership transfers, workspace switching, logout, and deactivation.
 
-Negative assertions verify safe status/envelope, no content/existence/count/timing distinction, no mutation, no audit leak, no file/provider work, no cache contamination, and no background side effect. `NFR-SEC-001` requires 100 percent of implemented protected endpoint/service/repository/aggregate/report/download/AI-preparation cases to reject cross-household access.
+Negative assertions verify safe status/envelope, no content/existence/count/timing distinction, no mutation, no audit leak, no file/provider work, no cache contamination, and no background side effect. `NFR-SEC-001` requires 100 percent of implemented protected endpoint/service/repository/aggregate/report/download/AI-preparation cases to reject cross-workspace access.
+
+Role and ownership assertions prove that Contributor responses omit restricted totals and reports, Contributor financial submissions begin Pending, only Approved records enter official datasets, Advisor mutations and approvals fail, generic membership changes cannot create Admin, and bootstrap/ownership transfer preserve exactly one Active Admin owner under concurrency and failure.
 
 ## 11. Backend domain, service, and architecture suites
 
@@ -232,7 +234,7 @@ Negative assertions verify safe status/envelope, no content/existence/count/timi
 
 ### 11.2 Application/service
 
-- current actor/household/capability is passed explicitly;
+- current actor/workspace/capability is passed explicitly;
 - required repository/module ports are called with scoped values;
 - validation/authorisation occurs before mutation or external calls;
 - transaction-required business records, audit intent, and idempotency outcome commit together or not at all;
@@ -256,10 +258,10 @@ An architecture-test exception requires a new/superseding ADR; disabling the che
 
 - Constraints reject orphan, ownership mismatch, duplicate canonical links, invalid code/range/scale/date, self-reversal, and allocation inconsistency.
 - Runtime role tests prove denied schema/role/database/migration/other-module privileges.
-- Repository queries always include household scope and stable pagination/order.
+- Repository queries always include workspace scope and stable pagination/order.
 - Query-plan fixtures validate named high-volume lists/aggregates against the reference dataset without asserting brittle exact planner internals.
 - Concurrency tests use independent database connections/transactions and explicit synchronization barriers, not timing sleeps.
-- Duplicate create, concurrent payment/allocation, stale version, deadlock retry, timeout-after-commit, refresh rotation, and idempotency races result in one intended mutation or explicit conflict.
+- Concurrent bootstrap, ownership transfer, duplicate create, concurrent payment/allocation, stale version, deadlock retry, timeout-after-commit, refresh rotation, and idempotency races result in one intended mutation or explicit conflict.
 - Transaction isolation/locking behavior is documented per use case and asserted rather than relying on database defaults.
 
 Migration gates include clean upgrade, every supported prior version, repeat execution behavior, model/schema drift inspection, constraint/index/ownership checks, preserved history/counts/totals, and application compatibility. Destructive/non-reversible changes require protected backup plus tested rollback or forward-fix/restore plan; a successful migration command alone is not sufficient.
@@ -277,7 +279,7 @@ API tests cover:
 - rate-limit threshold, safe `429`, `Retry-After`, recovery, distributed scope, and no enumeration; and
 - async queued/success/failure/cancel/timeout/retry with protected status/artifact access.
 
-Session tests cover activation, valid/invalid password, uniform enumeration response, access expiry, refresh idle/absolute expiry, rotation, reuse-family revocation, zero grace/lost response, single-flight refresh, logout, password change, account/membership deactivation, step-up freshness, CSRF, CORS, cookie attributes, access-token memory policy, and revocation on every protected request.
+Session tests cover single-winner bootstrap, activation/restart, concealed recovery, valid/invalid password, uniform enumeration response, opaque access expiry, refresh idle/absolute expiry, rotation, reuse-family revocation, zero grace/lost response, single-flight refresh, logout, password change, account/membership deactivation, ownership security events, step-up freshness, CSRF, CORS, cookie attributes, access-credential memory policy, and revocation on every protected request.
 
 ## 14. Security, privacy, files, and observability suites
 
@@ -320,8 +322,8 @@ Forms cover persistent labels, instructions, required/optional state, locale inp
 
 Critical Playwright flows are derived from use cases and include normal, alternate, failure, recovery, audit, isolation, responsive, and accessibility paths. At minimum as phases arrive:
 
-- activation/login/refresh/logout/password change and household selection;
-- role-appropriate household/member action and denied direct request;
+- bootstrap, activation/login/recovery/refresh/logout/password change, and workspace selection;
+- role-appropriate workspace/member/ownership action and denied direct request;
 - finance event create/view/filter/reversal with exact displayed context;
 - blank Farming Investments state, explicit creation, edit, cancel/archive/restore;
 - cost/harvest/sale/payment/allocation/profitability workflows;
@@ -329,7 +331,7 @@ Critical Playwright flows are derived from use cases and include normal, alterna
 - dashboard filtering and honest empty/data-quality/chart states;
 - report preview/request/status/download/failure/expiry;
 - AI purpose/request/safe response/fallback with masked verified data; and
-- install/offline draft/queue/reconnect/retry/conflict/logout/household-switch behavior.
+- install/offline draft/queue/reconnect/retry/conflict/logout/workspace-switch behavior.
 
 Tests use semantic locators, not fragile CSS structure. Screenshots/traces are retained on failure under short safe retention and are scanned/constructed to contain synthetic data only.
 
@@ -352,7 +354,7 @@ Generation tests cover standard and maximum approved datasets, authorisation los
 
 Deterministic pull-request tests use a fake provider and cover:
 
-- authentication, household, role, purpose, dataset quality/version, and abuse limit before provider call;
+- authentication, workspace, role/capability, purpose, dataset quality/version, and abuse limit before provider call;
 - 100 percent removal/replacement of prohibited-field canaries across names, contacts, addresses, bank/payment details, references, authentication data, secrets, unnecessary descriptions, and adversarial free text;
 - outbound allowlisted schema, currency/unit/period/quality/assumption context, and no request for authoritative calculation;
 - prompt-injection content treated as data;
@@ -374,12 +376,12 @@ Fault injection occurs:
 3. after server commit but before response;
 4. during idempotent retry;
 5. during refresh/auth expiry;
-6. during household/membership change; and
+6. during workspace/membership change; and
 7. during report/provider/file work.
 
 Every write produces exactly one committed event, one retained valid local item, or an explicit conflict--never silent loss, duplicate creation, or overwrite. Retry stops on authentication, validation, permanent, and conflict errors and obeys bounded backoff for retryable failures.
 
-Storage inspection proves no access/refresh/session/CSRF secret, Restricted field, attachment, report, or unmasked AI source enters local/session storage, IndexedDB, Cache API, service-worker cache, queued bodies, traces, or URLs. Draft age, queue count/bytes, recent-cache age/bytes, logout, explicit clear, household switch, and deactivation behavior match the security design.
+Storage inspection proves no access/refresh/session/CSRF secret, Restricted field, attachment, report, or unmasked AI source enters local/session storage, IndexedDB, Cache API, service-worker cache, queued bodies, traces, or URLs. Draft age, queue count/bytes, recent-cache age/bytes, logout, explicit clear, workspace switch, and deactivation behavior match the security design.
 
 ## 20. Performance, reliability, and capacity
 
@@ -395,7 +397,7 @@ Initial targets from the non-functional requirements:
 | Cached-return primary mobile page | Usable core content within 4 seconds p75 under constrained profile |
 | Local interaction feedback | Begins within 100 ms on supported reference device |
 | Standard PDF/CSV / Excel | 30 seconds p95 / 60 seconds p95 for reference dataset |
-| Interactive load | 10 concurrent authenticated sessions across isolated households |
+| Interactive load | 10 concurrent authenticated sessions across isolated workspaces |
 
 Performance tests are scheduled/release gates on production-like infrastructure, not mocked unit timing. Regression budgets are established after a measured baseline; one fast local run cannot prove percentile compliance. Operations longer than 2 seconds also receive UI progress and duplicate-prevention tests.
 
@@ -405,7 +407,7 @@ Reliability/fault tests cover database/provider/email/renderer/storage timeout, 
 
 - A complete restore is rehearsed before first production release, at least quarterly, and after material format/topology/key changes.
 - The timed restore uses replacement/isolated infrastructure and measures the approved 24-hour RPO and 4-hour RTO baselines.
-- Verification reconciles schema/migration version, constraints, row counts, files, memberships/sessions, audit references, representative financial totals, calculations, and the full household-isolation suite with zero unexplained differences.
+- Verification reconciles schema/migration version, constraints, row counts, files, memberships/sessions, audit references, representative financial totals, calculations, and the full workspace-isolation suite with zero unexplained differences.
 - Email/provider/background side effects are disabled in restore environments.
 - Deployment tests cover clean build, locked dependencies, image health, non-root/privilege, configuration fail-closed, secrets absent, exposed ports, TLS/headers, database access, migration, health check, failed-health rollback/restore, monitoring/alert delivery, backup age, certificate and disk thresholds.
 
@@ -452,7 +454,7 @@ No arbitrary global line-coverage percentage is set before representative Phase 
 Regardless of global percentage:
 
 - documented financial formula decision cases require 100 percent coverage;
-- implemented protected surfaces require complete two-household negative coverage;
+- implemented protected surfaces require complete two-workspace negative coverage;
 - prohibited AI masking fields require 100 percent canary removal/replacement coverage;
 - supported critical flows require zero known WCAG 2.2 A/AA failures at release; and
 - every fixed high-impact defect requires a regression test at the lowest effective level plus boundary evidence where needed.
@@ -490,13 +492,13 @@ CI evidence is attached to the exact commit. Local manual claims include capture
 | Phase | Required evidence before milestone exit |
 | --- | --- |
 | 0 Foundation/docs | Documentation links/traceability; accepted designs/ADRs; reproducible scaffold/CI commands when their issues land; no product-test pass claims |
-| 1 Authentication/household | Password/session lifecycle, CSRF/CORS/cookies, roles, membership, audit, two-household repository/service/API/browser isolation |
+| 1 Authentication/workspace | Bootstrap, activation/recovery, opaque session lifecycle, CSRF/CORS/cookies, three roles, ownership/membership, audit, and two-workspace repository/service/API/browser isolation |
 | 2 Household finance | Exact input/storage, category/filter/date, canonical event/no double count, reversal, summary reconciliation, audit/isolation |
 | 3 Farming foundation | True blank state, explicit create, locations/categories, lifecycle/history, expense link, idempotency/conflict, accessibility |
 | 4 Harvest/sales/profitability | Complete formula decision/property matrices, allocations, harvest/sale/payment, missing/zero/partial/precision/reconciliation |
 | 5 Analytics/planning | Historical/data-quality, transparent indicators, scenario inputs/assumptions/version/uncertainty, no recommendation without evidence |
 | 6 Funds/obligations | Remittance allocations, debt/receivable payments, FX, partial/overpayment, canonical cash links, exact balance reconciliation |
-| 7 Dashboard | Verified dataset/filter reconciliation, honest states, accessible charts/tables, responsive/performance and household isolation |
+| 7 Dashboard | Verified Approved-dataset/filter reconciliation, honest states, accessible charts/tables, responsive/performance and workspace isolation |
 | 8 Reports/exports | Golden cross-output reconciliation, PDF/Excel/CSV/preview/print, authorisation, files/expiry/audit, performance/accessibility |
 | 9 AI adviser | Purpose/auth, 100 percent prohibited canary masking, structured provider contract, uncertainty/Shan/fallback, no mutation/log leak |
 | 10 PWA/offline | Install/cache shell, all sync states, fault points, idempotency/conflict, storage limits/privacy, logout/switch/deactivation |
@@ -525,7 +527,7 @@ Small-team role overlap is allowed, but high-impact manual evidence records who 
 | Requirements/milestones | Stable test IDs, PR mapping fields, Section 25 exit matrix |
 | Backend/frontend levels | Sections 5, 11-16 and planned tool ownership |
 | Financial precision/boundaries | Exact Section 9 matrix, properties, reconciliation, cross-output gates |
-| Household isolation | Complete Section 10 two-household surfaces and no-side-effect assertions |
+| Workspace isolation | Complete Section 10 two-workspace surfaces, role/ownership invariants, and no-side-effect assertions |
 | Reports/AI/audit/offline/accessibility | Dedicated Sections 14-19 with failure/privacy/manual evidence |
 | Fixtures/privacy | Synthetic-only packs, canaries, deterministic generation, no production copies |
 | Honest reporting | Section 3 vocabulary and Section 24 command/environment/result evidence |
@@ -541,7 +543,7 @@ Issue #12 is satisfied when review confirms that:
 
 - test levels, critical suites, fixtures, environments, ownership, and quality gates map to requirements and all milestones;
 - financial precision, rounding, boundaries, zero denominators, allocations, FX, units, reconciliation, and binary-float prohibition are explicit;
-- household isolation, reports/exports, AI masking/fallback, audit/log privacy, offline conflicts, accessibility, migrations, security, performance, deployment, and restore are covered;
+- workspace isolation, role/ownership/approval boundaries, reports/exports, AI masking/fallback, audit/log privacy, offline conflicts, accessibility, migrations, security, performance, deployment, and restore are covered;
 - PostgreSQL behavior is not substituted with SQLite;
 - fixtures and evidence use no real family data or usable secrets;
 - unexecuted, skipped, blocked, flaky, and non-applicable checks are never reported as passed;

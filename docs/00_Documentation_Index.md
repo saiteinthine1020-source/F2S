@@ -7,10 +7,10 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 ## Status vocabulary
 
 - **Approved:** an accepted decision that guides implementation.
-- **Baseline:** the current agreed Phase 0 specification; future issues may refine it.
+- **Baseline:** the current agreed foundation specification; future issues may refine it.
 - **Planned:** required before or during the named phase.
 
-## Authoritative Phase 0 documents
+## Authoritative foundation documents
 
 | Document | Purpose | Status |
 | --- | --- | --- |
@@ -25,6 +25,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [REST API Design](09_API_Design.md) | Defines versioned resources, methods, formats, authorisation, pagination, idempotency, errors, and compatibility. | Baseline |
 | [UI/UX Design](10_UI_UX_Design.md) | Defines Shan-first mobile layouts, navigation, internationalisation, accessibility, forms, and honest interface states. | Baseline |
 | [Farming Investment Design](11_Farming_Investment_Design.md) | Defines the core farming-investment concept, empty states, creation flow, calculation states, and lifecycle. | Baseline |
+| [Workspace and Identity Foundation](12_Workspace_Identity_Design.md) | Defines the authoritative Phase 1 workspace, account, ownership, membership, role, activation, recovery, API, UI, audit, and test contract. | Approved |
 | [AI Design](14_AI_Design.md) | Defines verified-data input, minimisation, masking, provider isolation, response validation, Shan fallback, and safe audit. | Baseline |
 | [Security Design](15_Security_Design.md) | Defines assets, trust boundaries, threats, controls, security baselines, privacy limits, and verification. | Baseline |
 | [Report and Export Design](16_Report_Export_Design.md) | Defines shared verified datasets, PDF/Excel/CSV behavior, accessible charts, protected artifacts, and cleanup. | Baseline |
@@ -37,6 +38,11 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [ADR-002: Use PostgreSQL](adr/ADR-002-use-postgresql.md) | Selects the primary relational database and defines ownership, transaction, privilege, backup, and fitness rules. | Approved |
 | [ADR-003: Use FastAPI](adr/ADR-003-use-fastapi.md) | Selects FastAPI for the typed HTTP boundary while preserving framework-independent domain modules. | Approved |
 | [ADR-008: Use Decimal-Safe Financial Numeric Storage](adr/ADR-008-safe-financial-numeric-storage.md) | Defines exact numeric types, currency, precision, scale, rounding, allocation, exchange-rate, and zero-denominator rules. | Approved |
+| [ADR-012: Use Workspace-Level Data Isolation](adr/ADR-012-workspace-level-data-isolation.md) | Establishes Workspace as the tenant and authorization boundary. | Approved |
+| [ADR-013: Separate Workspace Ownership from Membership Roles](adr/ADR-013-workspace-ownership-and-membership.md) | Defines the three roles, owner invariant, membership states, and atomic transfer. | Approved |
+| [ADR-014: Use Opaque Rotating Server-Side Sessions](adr/ADR-014-opaque-server-side-sessions.md) | Defines revocable access and rotating refresh-session behavior. | Approved |
+| [ADR-015: Use Controlled Bootstrap, Activation, and Recovery Lifecycles](adr/ADR-015-bootstrap-activation-and-recovery.md) | Defines first setup, member activation, and recovery boundaries. | Approved |
+| [ADR-016: Model Workspace Type Separately from Enabled Modules](adr/ADR-016-workspace-types-and-modules.md) | Defines workspace types, module configuration, and change safety. | Approved |
 | [GitHub Milestones](project_management/GitHub_Milestones.md) | Defines all 12 delivery milestones. | Baseline |
 | [First 20 GitHub Issues](project_management/First_20_GitHub_Issues.md) | Proposes the first ordered, independently reviewable issues. | Baseline |
 | [Repository Initialisation](project_management/Repository_Initialisation.md) | Provides exact commands for local Git and GitHub initialisation. | Baseline |
@@ -71,13 +77,13 @@ The following decisions require separate ADRs before their corresponding impleme
 5. ADR-009 Use a PWA for Unstable Connectivity
 6. ADR-010 Use XlsxWriter for Excel Reporting
 7. ADR-011 Use Deterministic Crop Forecasting
-8. ADR-012 Use Household-Level Data Isolation
+8. ADR-017 Use Capacitor for First Native Packaging
 
 ## Documentation governance
 
 - A document change and its related behaviour change belong in the same issue or pull request.
 - Each ADR is immutable after acceptance except for metadata or typo fixes; a new ADR supersedes a decision.
 - Requirements use stable identifiers so tests and later designs can trace back to them.
-- Examples must never be presented as real household data.
+- Examples must never be presented as real workspace data.
 - Empty-state designs must not rely on fabricated totals, investments, or charts.
 - Financial formulas must have one backend source of truth and documented rounding rules.

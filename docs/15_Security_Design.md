@@ -21,8 +21,8 @@ References are pinned by version or review date in the implementation/test strat
 
 ## 3. Security objectives and invariants
 
-1. A user may access only the capabilities and records authorised for the current household.
-2. Cross-household identifiers never expose content, existence, counts, timing distinctions, files, jobs, reports, AI payloads, or cached data.
+1. A user may access only the capabilities and records authorised for the selected workspace.
+2. Cross-workspace identifiers never expose content, existence, counts, timing distinctions, files, jobs, reports, AI payloads, or cached data.
 3. Financial and farming facts cannot be silently duplicated, overwritten, recalculated by an untrusted layer, or changed without required audit evidence.
 4. Credentials, secrets, full payment details, and unmasked AI payloads never enter logs, repositories, images, CI output, URLs, analytics, or ordinary errors.
 5. The browser, network, external providers, uploaded files, and all request data remain untrusted.
@@ -37,7 +37,7 @@ References are pinned by version or review date in the implementation/test strat
 ### 4.1 In scope
 
 - identity, account activation, authentication, sessions, password change, logout, and deactivation;
-- household membership, role/capability enforcement, and object isolation;
+- workspace ownership, membership, role/capability enforcement, and object isolation;
 - browser/PWA, HTTPS edge, REST API, modular backend, PostgreSQL, file storage, and operational access;
 - uploads, downloads, reports, exports, offline storage/queues, backups, logs, audit, AI, email, and future providers;
 - configuration, secrets, dependencies, images, CI/CD, deployment, monitoring, and incident evidence; and
@@ -47,20 +47,20 @@ References are pinned by version or review date in the implementation/test strat
 
 - Production uses HTTPS and one controlled application origin.
 - The database and backend are not public internet services.
-- F2S initially has a small household user population but must not rely on obscurity or low traffic.
-- Operators have separately controlled infrastructure access; operator access does not grant ordinary household business authority.
+- F2S initially has a small workspace user population but must not rely on obscurity or low traffic.
+- Operators have separately controlled infrastructure access; operator access does not grant ordinary workspace business authority.
 - Client devices may be shared, lost, compromised, offline, or running hostile extensions.
 - Gemini, email, storage, package registries, and other providers can fail or be compromised.
 
 ### 4.3 Non-goals for this issue
 
 - selecting a commercial identity provider, WAF, SIEM, malware scanner, or secrets product;
-- implementing multi-factor authentication, passkeys, SSO, or account recovery;
+- implementing multi-factor authentication, passkeys, SSO, or application code for the documented recovery contract;
 - legal conclusions about retention, residency, or regulatory classification;
 - physical-datacentre security; and
 - claiming penetration-test or production-hardening completion.
 
-MFA/passkeys and recovery remain required risk decisions before exposing F2S beyond the intended household population.
+MFA/passkeys remain a required risk decision before broader public exposure. Concealed single-use account recovery is required before public launch by ADR-015.
 
 ## 5. Asset and data classification register
 
@@ -68,14 +68,14 @@ MFA/passkeys and recovery remain required risk decisions before exposing F2S bey
 | --- | --- | --- | --- | --- |
 | A-01 | Password verifiers, activation/recovery evidence | Restricted | Account takeover | Salted expensive hashing or digest, one-time use, least privilege, no logs |
 | A-02 | Access/refresh session secrets and CSRF secrets | Restricted | Session takeover/replay | High entropy, digest at rest, secure transport/storage, rotation/revocation |
-| A-03 | Memberships, roles, invitations, household settings | Confidential | Privilege escalation/isolation failure | Backend policy, versioning, audit, same-household constraints |
-| A-04 | Finance, payments, references, debts, receivables | Confidential/Restricted by field | Disclosure or false financial history | Household scope, exact values, transactions, protected copies |
-| A-05 | Farm plans, costs, harvests, sales, profitability | Confidential | Disclosure or manipulated decisions | Household scope, canonical calculations, audit/provenance |
+| A-03 | Workspaces, owner references, memberships, roles, activation/recovery/transfer challenges, settings | Confidential/Restricted by field | Privilege escalation/isolation failure | Backend policy, versioning, digest-only credentials, audit, same-workspace constraints |
+| A-04 | Finance, payments, references, debts, receivables | Confidential/Restricted by field | Disclosure or false financial history | Workspace scope, exact values, transactions, approval lifecycle, protected copies |
+| A-05 | Farm plans, costs, harvests, sales, profitability | Confidential | Disclosure or manipulated decisions | Workspace scope, canonical calculations, audit/provenance |
 | A-06 | Attachments and receipts | Restricted unless classified lower | Malware/path traversal/disclosure | Allowlist, quarantine, scan, generated key, authorised delivery |
 | A-07 | Reports, exports, dashboards, forecasts | Confidential | Bulk disclosure/formula mismatch | Verified dataset, authorisation, short retention, protected download |
 | A-08 | AI source, masked payload, response, metadata | Restricted before masking; Confidential after approval | External disclosure/injection | Purpose validation, deterministic masking, schema validation, minimal retention |
 | A-09 | Audit events and security telemetry | Confidential | Tampering or secondary data store | Append-only intent, allowlisted fields, restricted query, integrity/retention |
-| A-10 | Operational logs, traces, metrics | Internal/Confidential | Secret/household leakage | Structured allowlist, redaction, access control, short retention |
+| A-10 | Operational logs, traces, metrics | Internal/Confidential | Secret/workspace leakage | Structured allowlist, redaction, access control, short retention |
 | A-11 | Database and file backups | Same maximum classification as source | Bulk breach/unrecoverable loss | Encryption, off-host protection, separate credentials, restore verification |
 | A-12 | Source, images, dependencies, CI artifacts | Internal/Public by artifact | Supply-chain compromise/secret exposure | Review, pinning, scanning, provenance, no production secrets |
 | A-13 | Deployment credentials, API keys, TLS/private keys | Restricted | Full-system/provider compromise | External secret storage, least privilege, rotation, access audit |
@@ -87,13 +87,13 @@ Every new field or artifact records purpose, classification, authorised audience
 
 | Actor | Trust posture | Security concern |
 | --- | --- | --- |
-| Household Owner | Authenticated but requests remain untrusted | Account compromise, accidental high-impact action, misuse of broad capability |
-| Family Member | Authenticated with limited capability | Privilege escalation, cross-module/cross-household access |
-| Viewer | Authenticated read-only where granted | Mutation attempts, bulk extraction, stale permission |
+| Admin / Workspace Owner | Authenticated but requests remain untrusted | Account compromise, ownership-transfer abuse, accidental high-impact action, misuse of broad capability |
+| Contributor | Authenticated with limited submission capability | Restricted-total extraction, approval bypass, cross-module/cross-workspace access |
+| Advisor | Authenticated read-only with comment/flag capability | Mutation or approval attempts, bulk extraction, stale permission |
 | Anonymous user | Untrusted | Credential guessing, enumeration, activation/recovery abuse, scanning |
 | Compromised user/browser | Hostile within a valid session | XSS, token theft, excessive export, CSRF, malicious input |
 | External attacker | Hostile | Injection, credential stuffing, denial of service, exploit/supply-chain use |
-| F2S operator | Privileged operational actor, not household actor | Mistake, misuse, stolen SSH/deployment/backup credential |
+| F2S operator | Privileged operational actor, not workspace actor | Mistake, misuse, stolen SSH/deployment/backup credential |
 | CI/deployment system | Privileged machine actor | Artifact tampering, secret leakage, dependency compromise |
 | Gemini/email/file provider | External and untrusted | Data leakage, prompt/output manipulation, outage, malicious response |
 | Uploaded file | Untrusted content | Malware, parser exploit, active content, decompression, traversal |
@@ -102,7 +102,7 @@ Every new field or artifact records purpose, classification, authorised audience
 
 ```mermaid
 flowchart LR
-    User["Household user"] -->|"Untrusted input over HTTPS"| Edge["HTTPS edge / Nginx"]
+    User["Workspace member"] -->|"Untrusted input over HTTPS"| Edge["HTTPS edge / Nginx"]
     Browser["React PWA and device storage"] -->|"Bearer/API and cookie-auth requests"| Edge
     Edge -->|"Bounded proxied request"| App["FastAPI modular monolith"]
     App -->|"Least-privilege parameterised access"| DB[("PostgreSQL")]
@@ -120,20 +120,20 @@ flowchart LR
 | TB-01 | User/device to browser | Input, local files, extensions, shared device | UI safety only; no authority decision |
 | TB-02 | Internet to HTTPS edge | Methods, headers, body, connection rate | TLS, size/time limits, header normalization, coarse abuse control |
 | TB-03 | Edge to backend | Forwarded identity/network metadata | Trusted-proxy allowlist; backend authn/authz/validation |
-| TB-04 | Backend to database | Queries, transactions, migrations | Least-privilege role, parameterisation, household scope, constraints |
+| TB-04 | Backend to database | Queries, transactions, migrations | Least-privilege role, parameterisation, workspace scope, constraints |
 | TB-05 | Backend to file storage/parser | File bytes, names, metadata | Quarantine, allowlist, scan, generated key, expiry |
 | TB-06 | Backend to provider | Masked dataset and external response | Purpose/permission, minimisation, timeout, schema/safety validation |
 | TB-07 | Runtime to logs/audit/monitoring | Potentially sensitive event context | Allowlisted schema, redaction, access/retention controls |
 | TB-08 | Live data to backup/restore | Complete protected datasets and keys | Encryption, independent credentials, integrity, restored isolation checks |
 | TB-09 | Operator/CI to runtime | Code, image, migration, configuration, secret | Strong admin auth, review, provenance, separation, audit |
 
-No `X-Forwarded-*` value, browser role, hidden control, request household header, file metadata, provider assertion, or log field is trusted without the decision defined at its owning boundary.
+No `X-Forwarded-*` value, browser role, hidden control, request workspace header, file metadata, provider assertion, or log field is trusted without the decision defined at its owning boundary.
 
 ## 8. Threat-model method
 
 The initial model combines STRIDE categories (spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege) with explicit privacy, financial-integrity, offline, and provider threats.
 
-Risk priority considers impact on household confidentiality, financial correctness, authority, recoverability, and exploitability. `Critical` and `High` threats require prevention and detection evidence before the affected feature is released. Accepted residual risk requires an owner, rationale, compensating control, expiry, and review date.
+Risk priority considers impact on workspace confidentiality, financial correctness, authority, recoverability, and exploitability. `Critical` and `High` threats require prevention and detection evidence before the affected feature is released. Accepted residual risk requires an owner, rationale, compensating control, expiry, and review date.
 
 ## 9. Threat-to-control traceability matrix
 
@@ -145,11 +145,11 @@ Risk priority considers impact on household confidentiality, financial correctne
 | T-04 | XSS or malicious dependency steals data/acts as user | Critical | C-05, C-06, C-17 | Encoding/injection fixtures, CSP enforcement, dependency and browser tests |
 | T-05 | Overbroad CORS or proxy-header trust bypasses origin/client policy | High | C-05, C-16 | Unapproved/null/wildcard origin, credential, preflight, spoofed-forwarded-header tests |
 | T-06 | SQL/command/template/header injection or mass assignment | Critical | C-06, C-09, C-10 | Injection corpus, unknown-field rejection, parameterised repository tests |
-| T-07 | IDOR/BOLA exposes or changes another household | Critical | C-07, C-08 | Complete two-household isolation matrix and no-side-effect assertions |
-| T-08 | Role/membership/invitation manipulation elevates privilege | Critical | C-07, C-08, C-14 | Role transition, last-owner, stale session, invitation replay, audit tests |
+| T-07 | IDOR/BOLA exposes or changes another workspace | Critical | C-07, C-08 | Complete two-workspace isolation matrix and no-side-effect assertions |
+| T-08 | Ownership, role, membership, or challenge manipulation elevates privilege | Critical | C-07, C-08, C-14 | Bootstrap race, role transition, sole-owner, transfer concurrency, challenge replay, stale session, and audit tests |
 | T-09 | Retry, concurrency, cursor, or idempotency abuse duplicates/overwrites finance | Critical | C-08, C-09, C-14 | Concurrent, stale ETag, replay, timeout-after-commit, fingerprint tests |
 | T-10 | Malicious upload executes, traverses, exhausts, or exposes content | High | C-10, C-11, C-15 | Type/signature/size/name/traversal/malware/quarantine/decompression tests |
-| T-11 | Report/export/download leaks bulk or expired/foreign data | High | C-07, C-11, C-13 | Filter/auth/expiry/cache/filename/formula/cross-household download tests |
+| T-11 | Report/export/download leaks bulk or expired/foreign data | High | C-07, C-11, C-13 | Filter/auth/expiry/cache/filename/formula/cross-workspace download tests |
 | T-12 | Lost/shared offline device reveals or replays protected data | High | C-03, C-12, C-13 | Logout/switch/expiry/quota/replay/conflict/lost-device scenarios |
 | T-13 | Logs, audit, traces, analytics, or errors leak secrets/data | High | C-13, C-14 | Prohibited-value canaries, schema/redaction/error/correlation tests |
 | T-14 | AI receives prohibited data or returns injected/unsafe output | High | C-07, C-13, C-18 | Deterministic masking, free-text attacks, schema, timeout, fallback fixtures |
@@ -172,7 +172,7 @@ Risk priority considers impact on household confidentiality, financial correctne
 | C-04 | Replay and session lifecycle | Absolute/idle expiry, reuse detection, step-up, current authority check |
 | C-05 | Browser, edge, and origin policy | HTTPS, CSP/headers, CSRF, CORS, proxy trust, no-store |
 | C-06 | Input/output safety | Strict schemas, parameterisation, contextual encoding, safe errors |
-| C-07 | Authorisation and isolation | Request-scoped context, capability checks, same-household references |
+| C-07 | Authorisation and isolation | Request-scoped context, capability checks, same-workspace references, Contributor response minimisation |
 | C-08 | Data/financial integrity | Transactions, composite constraints, versioning, idempotency, canonical links |
 | C-09 | API abuse resistance | Method/media/size/filter/sort/cursor/precondition controls |
 | C-10 | File/parser safety | Allowlist, signature, generated storage key, quarantine, scan, limits |
@@ -183,7 +183,6 @@ Risk priority considers impact on household confidentiality, financial correctne
 | C-15 | Rate/capacity control | Risk-tier limits, quotas, concurrency, timeout, bounded retry |
 | C-16 | Secret/config/admin control | External secrets, fail-closed schema, least privilege, rotation |
 | C-17 | Supply-chain assurance | Pinning, review, scans, SBOM, provenance, release gates |
-| C-18 | Provider/AI isolation | Backend-only allowlist, masking, purpose/schema validation, fallback |
 | C-19 | Runtime/network hardening | Minimal exposure, non-root, patching, protected database/storage |
 | C-20 | Backup/recovery/data lifecycle | Encryption, independent copy/access, integrity, restore, deletion |
 
@@ -205,7 +204,7 @@ Risk priority considers impact on household confidentiality, financial correctne
 - Password change requires current-password or approved step-up proof, rotates the account security version, and revokes other sessions by default.
 - Deactivation prevents new authentication and invalidates active sessions at the next protected check.
 - Recovery cannot rely on knowledge-based security questions. The exact recovery and MFA/passkey design requires a separate approved issue before public use.
-- Owner recovery and last-owner changes require a separately reviewed high-assurance workflow; support/operator access cannot silently assume household ownership.
+- Owner recovery and sole-owner changes require a separately reviewed high-assurance workflow; support/operator access cannot silently assume workspace ownership or create a second owner.
 
 ## 12. Session and token design
 
@@ -215,7 +214,7 @@ Risk priority considers impact on household confidentiality, financial correctne
 - The access credential is sent as `Authorization: Bearer` and kept in browser memory only.
 - Access, refresh, session, activation, and CSRF secrets are never stored in `localStorage`, `sessionStorage`, URLs, logs, analytics, or service-worker caches.
 - Refresh is carried in a `__Host-f2s_refresh` cookie with `Secure`, `HttpOnly`, `SameSite=Strict`, `Path=/`, no `Domain`, and an expiry not beyond server-side session validity.
-- Cookie contents are opaque and contain no user, household, role, or personal data.
+- Cookie contents are opaque and contain no user, workspace, role, or personal data.
 
 ### 12.2 Initial lifecycle values
 
@@ -252,7 +251,7 @@ SameSite is defense in depth, not the only CSRF control. Login and activation al
 - If a separate frontend origin is approved, CORS lists exact HTTPS origins; wildcard, reflected, regex-suffix, and `null` origins are rejected.
 - Credentialed requests never use `Access-Control-Allow-Origin: *`.
 - Allowed methods/headers are minimal; preflight results are bounded and vary by Origin.
-- CORS is not authorisation and never exposes protected errors before authentication/household checks.
+- CORS is not authorisation and never exposes protected errors before authentication/workspace checks.
 
 ### 13.3 CSP and security headers
 
@@ -272,47 +271,47 @@ Report-only CSP may collect a short pre-enforcement validation sample, but produ
 
 ## 14. Authentication and abuse limits
 
-Limits use distributed server-side counters and combine account/session/actor/household/IP/device signals without treating IP as identity. All values are **Provisional** and require capacity and false-positive testing.
+Limits use distributed server-side counters and combine account/session/actor/workspace/IP/device signals without treating IP as identity. All values are **Provisional** and require capacity and false-positive testing.
 
 | Operation | Initial limit/action |
 | --- | --- |
 | Login | After 5 failed attempts/account/15 minutes, increasing delay; 30 attempts/IP/15 minutes; no revealing hard lock |
 | Activation/recovery request or proof | 5/account-or-recipient/hour and 20/IP/hour |
 | Refresh | 30/session/5 minutes; invalid/reused token follows security handling |
-| Protected reads | 120/actor/minute and 300/household/minute |
-| Protected writes | 30/actor/minute and 60/household/minute; idempotency still required |
+| Protected reads | 120/actor/minute and 300/workspace/minute |
+| Protected writes | 30/actor/minute and 60/workspace/minute; idempotency still required |
 | Upload | 20 files/actor/hour plus purpose-specific byte/storage quota |
-| Report/export | 5/actor/10 minutes, 10/household/10 minutes, maximum 2 concurrent |
-| AI advice | 5/actor/10 minutes, 20/household/hour, maximum 1 concurrent/actor |
+| Report/export | 5/actor/10 minutes, 10/workspace/10 minutes, maximum 2 concurrent |
+| AI advice | 5/actor/10 minutes, 20/workspace/hour, maximum 1 concurrent/actor |
 
 Responses use safe `429 RATE_LIMITED` and `Retry-After` when known. Limits apply before expensive hashing, parsing, rendering, or provider calls where feasible. Successful idempotent replay may use a low-cost tier but never bypasses abuse detection or authorisation.
 
-## 15. Authorisation and household isolation
+## 15. Authorisation and workspace isolation
 
 The backend enforces this sequence for every protected operation:
 
 1. validate the current authenticated server-side session;
-2. load an active membership for the household in the path;
-3. evaluate the required current capability/role/delegation;
-4. validate every path, body, query, cursor, include, parent, file, job, and idempotency reference against the same household;
-5. execute an owning-module query scoped by `household_id`;
+2. load an Active membership for the workspace in the path;
+3. evaluate the required current capability for `ADMIN`, `CONTRIBUTOR`, or `ADVISOR`;
+4. validate every path, body, query, cursor, include, parent, file, job, and idempotency reference against the same workspace;
+5. execute an owning-module query scoped by `workspace_id`;
 6. apply version/state/business constraints; and
 7. append required safe audit evidence in the owning transaction.
 
-Frontend roles, token claims, cached permission, UUID unpredictability, hidden controls, `X-Household-ID`, and post-query filtering are never authority.
+Frontend roles, client claims, cached permission, UUID unpredictability, hidden controls, `X-Workspace-ID`, and post-query filtering are never authority. Contributor queries and response schemas omit restricted totals; official datasets select only Approved records.
 
-PostgreSQL row-level security remains a later ADR/design decision and, if adopted, is defense in depth. It cannot replace application capability checks, owning-repository household predicates, or same-household relational constraints.
+PostgreSQL row-level security remains a later ADR/design decision and, if adopted, is defense in depth. It cannot replace application capability checks, owning-repository workspace predicates, or same-workspace relational constraints.
 
 ### 15.1 Concealment behavior
 
 - Missing authentication returns `401` with a safe stable code.
-- A known capability denial inside the actor's household may return `403`.
-- Missing, foreign-household, or intentionally concealed resource identifiers return the same `404 RESOURCE_NOT_FOUND` shape.
+- A known capability denial inside the actor's workspace may return `403`.
+- Missing, foreign-workspace, or intentionally concealed resource identifiers return the same `404 RESOURCE_NOT_FOUND` shape.
 - Responses, timing, pagination, counts, suggestions, caches, logs, and correlation lookup must not reveal the foreign resource.
 
 ### 15.2 Mandatory isolation test matrix
 
-Every protected resource family is tested with at least two households, users with different roles, a multi-household user, an inactive membership, and synthetic identifiers across:
+Every protected resource family is tested with at least two workspaces, users with different roles, a multi-workspace user, an inactive membership, and synthetic identifiers across:
 
 - list, item view, create, patch, lifecycle command, reversal, archive, restore, and delete where permitted;
 - foreign IDs in path, body, nested object, parent, filter, sort, search, cursor, include, and batch input;
@@ -322,14 +321,14 @@ Every protected resource family is tested with at least two households, users wi
 - audit query, correlation search, background job, notification, and asynchronous status;
 - AI purpose, source dataset, masking input, request status, and result;
 - idempotency-key scope, request fingerprint, ETag/version, replay, and offline queue; and
-- cache key, service-worker data, household switch, logout, deactivation, and restored backup.
+- cache key, service-worker data, workspace switch, logout, deactivation, and restored backup.
 
 Each negative case asserts safe status/body, no protected field/count/timing distinction, no mutation, no audit leakage, no file/provider call, and no cache contamination. Each positive control proves the intended authorised operation still works.
 
 ## 16. Validation, injection, and output safety
 
 - Request methods, content types, body sizes, field names, types, lengths, ranges, decimal scales, codes, state transitions, and relationships use strict allowlisted schemas.
-- Unknown command fields are rejected; clients cannot bind role, household, calculated, audit, ownership, or internal fields through mass assignment.
+- Unknown command fields are rejected; clients cannot bind role, workspace, approval, calculated, audit, ownership, or internal fields through mass assignment.
 - Database access is parameterised through owning repositories; dynamic identifiers/order/filter fields use explicit allowlists.
 - Shell commands and dynamic template/code evaluation are prohibited in request processing unless a separately reviewed adapter has no safer option.
 - User/provider text is contextually encoded at the final HTML/attribute/URL/CSV/PDF/Excel sink; sanitisation is purpose-specific and never the only XSS control.
@@ -343,7 +342,7 @@ Each negative case asserts safe status/body, no protected field/count/timing dis
 
 The initial receipt/attachment policy allows PDF, JPEG, and PNG only, with a maximum of 10 MiB per file (**Provisional**). SVG, HTML, archives, executables, scripts, macro-capable office files, and unknown types are rejected. Purpose-specific features may narrow this list and size but cannot widen it without security review.
 
-Uploads require current household/purpose/parent authorisation before bytes are accepted and then:
+Uploads require current workspace/purpose/parent authorisation before bytes are accepted and then:
 
 1. stream through edge/application size and time limits;
 2. ignore the client path and treat the original name as untrusted display metadata;
@@ -358,7 +357,7 @@ Image re-encoding and PDF active-content sanitisation are required if those form
 
 ### 17.2 Delivery
 
-- Downloads recheck current session, membership, capability, household, parent, purpose, clean status, and expiry.
+- Downloads recheck current session, membership, capability, workspace, parent, purpose, clean status, and expiry.
 - References are unguessable and expire after 5 minutes (**Provisional**) or stream through an authorised endpoint.
 - Responses use a sanitised filename, `nosniff`, attachment disposition unless reviewed safe inline rendering applies, and `no-store`.
 - File bytes are not served by a public bucket/path or permanent unauthorised URL.
@@ -366,8 +365,8 @@ Image re-encoding and PDF active-content sanitisation are required if those form
 
 ## 18. Reports and exports
 
-- The authorised filtered verified dataset is materialised only after current household and capability checks.
-- Report and export jobs store the requesting actor, household, filters, dataset/formula version, purpose, status, expiry, and safe correlation metadata.
+- The authorised filtered verified dataset is materialised only after current workspace, capability, role-specific field, and Approved-record checks.
+- Report and export jobs store the requesting actor, workspace, filters, dataset/formula version, purpose, status, expiry, and safe correlation metadata.
 - CSV/Excel cells beginning with formula/control prefixes are escaped according to the report design; user text cannot become executable spreadsheet content.
 - Filenames are server generated/sanitised and contain no secret or unnecessary personal data.
 - Completed artifact bytes expire after 24 hours (**Provisional**); a download reference expires after 5 minutes and does not extend artifact retention.
@@ -379,44 +378,44 @@ Image re-encoding and PDF active-content sanitisation are required if those form
 
 ### 19.1 Storage limits
 
-- The application shell contains no household data or credentials.
+- The application shell contains no workspace data or credentials.
 - Access/refresh/session/CSRF secrets are excluded from service-worker caches, Cache API, IndexedDB, local/session storage, queued bodies, crash reports, and URLs.
 - Restricted fields (password/authentication data, full payment/bank details, unmasked AI source, attachments, reports) are not approved for offline persistence.
 - Approved confidential drafts/queue records expire after 7 days, are limited to 100 items and 5 MiB total per device/profile, and stop accepting writes safely at either limit (**Provisional**).
-- Approved recent read-only cache expires after 24 hours and is limited to 20 MiB; every view displays last-verified time and household context (**Provisional**).
+- Approved recent read-only cache expires after 24 hours and is limited to 20 MiB; every view displays last-verified time and workspace context (**Provisional**).
 - Offline attachments and bulk exports are not supported initially.
 
 Browser storage encryption is not described as protection against XSS or a user controlling the active browser profile. Device-level protection, minimal fields, bounded lifetime, and server reauthorisation remain necessary.
 
 ### 19.2 Queue and clearing
 
-- Queue entries have an opaque local ID, household, operation, idempotency key, creation/expiry time, version/precondition, and minimal validated payload.
+- Each queued operation records an opaque local ID, workspace, operation type, retry identifier, creation and expiry timestamps, version/precondition, and minimal validated payload.
 - Synchronisation reauthenticates and reauthorises every item and never silently merges financial conflicts.
-- Logout, household removal/deactivation, explicit clear-data action, and account deactivation clear protected local state when the app can execute; an offline device cannot be assumed remotely erased.
-- Household switching never displays the prior household cache in the new context.
+- Logout, workspace membership removal/deactivation, explicit clear-data action, and account deactivation clear protected local state when the app can execute; an offline device cannot be assumed remotely erased.
+- Workspace switching never displays the prior workspace cache in the new context.
 - Failed, conflicted, expired, or lost-authority items remain visibly distinct and do not retry indefinitely.
 
 ## 20. AI and external provider security
 
 AI processing is backend-only and follows:
 
-1. authenticate, authorise household/capability/purpose, and apply abuse limits;
+1. authenticate, authorise workspace/capability/purpose, and apply abuse limits;
 2. obtain a versioned verified dataset from its owner;
 3. reject unsupported, insufficient, stale, or unsafe purposes before provider contact;
 4. deterministically remove/replace names, contacts, addresses, payment/bank details, references, authentication data, secrets, and unnecessary free text;
 5. validate the outbound allowlisted schema and prohibited-field canaries;
 6. send only to the configured allowlisted provider/model with finite timeout and bounded retry;
-7. treat instructions inside household/provider content as data, not system authority;
+7. treat instructions inside workspace/provider content as data, not system authority;
 8. validate response structure, numeric references, fact/forecast distinction, uncertainty, safety, and language contract; and
 9. return safe fallback without mutating source data when any step fails.
 
-Raw unmasked prompts, full provider payloads, credentials, and sensitive responses are not logged. Audit stores actor, household, purpose, dataset/model/policy versions, timestamps, result code, and correlation only. Provider terms, retention, region, training use, subprocessors, and deletion behavior require approval before production.
+Raw unmasked prompts, full provider payloads, credentials, and sensitive responses are not logged. Audit stores actor, workspace, purpose, dataset/model/policy versions, timestamps, result code, and correlation only. Provider terms, retention, region, training use, subprocessors, and deletion behavior require approval before production.
 
 ## 21. Logging, audit, monitoring, and errors
 
 ### 21.1 Structured logging
 
-Logs use an allowlisted schema such as timestamp, level, service/module, event code, safe route template, status class, duration, correlation ID, deployment version, and pseudonymous/internal actor or household reference only where operationally necessary.
+Logs use an allowlisted schema such as timestamp, level, service/module, event code, safe route template, status class, duration, correlation ID, deployment version, and pseudonymous/internal actor or workspace reference only where operationally necessary.
 
 Logs never contain passwords, tokens, cookies, authorisation/CSRF headers, API keys, private keys, activation/recovery evidence, full payment/bank details, raw attachments/reports, request/response bodies by default, unmasked AI payloads, or unsafe user free text.
 
@@ -425,14 +424,14 @@ Redaction happens before serialization/export. Security tests inject synthetic c
 ### 21.2 Audit
 
 - Policy-required authentication, membership/role, finance/farming, reversal, export, file, forecast, AI, setting, and security actions create structured audit intent.
-- Audit includes actor, household, action, resource type/safe ID, result, server time, correlation, module, and minimal safe metadata.
+- Audit includes actor, workspace, action, resource type/safe ID, result, server time, correlation, module, and minimal safe metadata.
 - Audit is append-only through its service contract; correction adds an event.
-- Audit query is separately permissioned, household scoped, paginated, filtered by allowlist, and itself auditable where required.
+- Audit query is separately capability-controlled, workspace scoped, paginated, filtered by allowlist, and itself auditable where required.
 - Audit does not duplicate full records, secrets, or raw before/after payment/AI payloads.
 
 ### 21.3 Detection and alerts
 
-Operator-visible alerts cover repeated authentication failure, refresh reuse, privilege/owner change, secret/config failure, cross-household denial anomaly, malware/upload spike, export/AI abuse, unexpected 5xx rate, database/storage health, backup failure/age, disk/certificate expiry, and security-scan release failure.
+Operator-visible alerts cover repeated authentication failure, refresh reuse, privilege/owner change, secret/config failure, cross-workspace denial anomaly, malware/upload spike, export/AI abuse, unexpected 5xx rate, database/storage health, backup failure/age, disk/certificate expiry, and security-scan release failure.
 
 Alerts contain enough correlation to investigate without copying protected payloads. Alert access and delivery channels are restricted and tested.
 
@@ -464,7 +463,7 @@ Alerts contain enough correlation to investigate without copying protected paylo
 - Encryption keys are separated from backup bytes, access reviewed, recoverable by an approved custodian, rotated with a documented old-backup strategy, and never stored only on the protected host.
 - Backup jobs use read-only/minimal privilege, do not log record content, and alert on failure or excess age.
 - Restore occurs into an isolated environment with restricted access and no external provider/email side effects.
-- Restore verification includes schema/version, row/count reconciliation, financial invariants, file references, session invalidation policy, and the complete two-household isolation suite.
+- Restore verification includes schema/version, row/count reconciliation, financial invariants, file references, session invalidation policy, and the complete two-workspace isolation suite.
 - Recovery-point objective begins at no more than 24 hours; complete restore must meet the approved recovery-time objective established by the backup design.
 - A successful restore is tested before first production release, at least quarterly, and after material format/topology/key changes.
 
@@ -491,7 +490,7 @@ Deletion jobs are authorised, bounded, idempotent, audited safely, and tested ag
 | --- | --- |
 | Threat traceability | Every in-scope threat maps to prevention/detection, owner, tests, and accepted residual risk |
 | Identity/session | Password/hash benchmark, enumeration, throttle, expiry, rotation, reuse, revocation, logout, deactivation |
-| Household isolation | Full Section 15.2 matrix with positive/negative cases and no-side-effect assertions |
+| Workspace isolation | Full Section 15.2 matrix with positive/negative cases and no-side-effect assertions |
 | Browser/API | TLS, headers, CSP, CORS, CSRF, cache, proxy trust, strict schema, safe error tests |
 | Injection | SQL, XSS, mass assignment, path, header, CSV/formula, template/command/SSRF fixtures as applicable |
 | Files/reports | Type/signature/size/malware/quarantine/name/path/expiry/auth/cache/failed-partial tests |
@@ -507,7 +506,7 @@ Security testing uses synthetic fixtures only. Automated scanners supplement, no
 
 ## 26. Security review and change governance
 
-A security review is required for changes to identity/session, roles, household ownership, public routes, CORS/CSP/cookies, file types/parsers, exports, offline fields, provider/AI data, logging schemas, retention, secrets, dependencies with material privilege, network exposure, backups, or operator access.
+A security review is required for changes to identity/session, roles, workspace ownership, public routes, CORS/CSP/cookies, file types/parsers, exports, offline fields, provider/AI data, logging schemas, retention, secrets, dependencies with material privilege, network exposure, backups, or operator access.
 
 Pull requests identify affected threats/control IDs and verification evidence. A control cannot be removed or weakened solely for convenience; the change requires updated threat analysis and explicit risk decision. Security incidents feed corrective issues, regression tests, rotation/revocation actions, and this design without placing sensitive incident details in the public repository.
 
@@ -520,8 +519,8 @@ Issue #11 is satisfied when review confirms that:
 - assets, actors, trust boundaries, threats, controls, and verification are traceable;
 - identity, isolation, API, database, uploads, exports, offline storage, backups, logs, AI, supply chain, and deployment are covered;
 - token, cookie, CSRF, CORS, CSP, validation, secret, and abuse policies are explicit;
-- every household-isolation surface has required two-household negative tests;
+- every workspace-isolation surface has required two-workspace negative tests;
 - passwords, tokens, authorisation headers, API keys, full payment details, and unmasked AI payloads are excluded from logs and ordinary errors;
 - provisional values have owners and future validation gates;
-- no real household data or production secret appears; and
+- no real workspace data or production secret appears; and
 - no authentication code, hardening implementation, schema, or penetration test is added.

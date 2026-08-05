@@ -3,7 +3,10 @@
 - **Status:** Accepted
 - **Date:** 2026-08-04
 - **Decision owners:** F2S maintainers
-- **Applies from:** Phase 1 - Authentication and Household
+- **Applies from:** Phase 1 - Authentication and Workspace
+- **Superseded in part by:** ADR-012 replaces Household with Workspace as the tenant,
+  ownership, and isolation boundary; historical Household wording below is read in that
+  workspace-scoped sense.
 
 ## Context
 

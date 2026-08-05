@@ -2,121 +2,96 @@
 
 ## 1. Purpose
 
-These stories express the intended F2S outcomes for Owner, Administrator, Family Member, and Viewer roles. They trace to [Functional Requirements](03_Functional_Requirements.md) and the delivery milestones. They do not authorise implementation outside an active GitHub Issue for the named milestone.
+These stories express F2S outcomes for the current Admin, Contributor, and Advisor
+workspace roles. They trace to the [Functional Requirements](03_Functional_Requirements.md),
+the [Workspace and Identity Foundation](12_Workspace_Identity_Design.md), and the delivery
+milestones. They do not authorize implementation outside an active issue for the named
+milestone.
 
-## 2. Story convention
+## 2. Story convention and superseded identifiers
 
-Story identifiers use `US-<ROLE>-<NUMBER>` and remain stable after publication.
+Story identifiers use `US-<ROLE>-<NUMBER>` and remain stable after publication. Each story
+includes the user outcome, mapped requirements, earliest delivery milestone, and observable
+acceptance outcomes including denial behavior.
 
-Each story includes:
+Current role prefixes are:
 
-- the user outcome;
-- mapped functional requirements;
-- the earliest delivery milestone; and
-- observable acceptance outcomes, including denial behaviour where relevant.
+- `ADMIN` — sole MVP Workspace Owner and workspace manager;
+- `CONTRIB` — submission creator with restricted financial visibility; and
+- `ADVISOR` — read-only reviewer with comment and flag capabilities.
 
-The role labels are:
+The former `US-OWN-*`, `US-ADM-*`, `US-MEM-*`, and `US-VIEW-*` series are retired by
+Issue 41 and are not reused. Those identifiers represented the superseded Owner, Administrator,
+Family Member, and Viewer model; they are not current Phase 1 roles.
 
-- `OWN` - Owner;
-- `ADM` - Administrator;
-- `MEM` - Family Member; and
-- `VIEW` - Viewer.
-
-Permission details remain subject to the later security design. “When granted” always means backend-enforced permission within an authorised household.
-
-## 3. Owner stories
-
-| ID | User story | Requirement references | Earliest milestone | Acceptance outcomes |
-| --- | --- | --- | --- | --- |
-| US-OWN-001 | As an Owner, I want to configure my household's identity, currency, timezone, language, units, financial year, and farming locations so records use the family's real context. | FR-HH-001, FR-HH-002 | Phase 1 | Valid settings persist and are audited; consequential changes do not rewrite historical facts; another household cannot view or change them. |
-| US-OWN-002 | As an Owner, I want to invite, activate, deactivate, and assign roles to household members so access follows family responsibilities. | FR-IAM-001, FR-IAM-003, FR-IAM-004 | Phase 1 | Only authorised actions succeed; deactivation removes access without deleting history; ownership cannot be transferred accidentally. |
-| US-OWN-003 | As an Owner, I want all protected views and actions isolated to my selected household so no family's information is mixed or exposed. | FR-AUTHZ-001 to FR-AUTHZ-006 | Phase 1 | Identifier substitution, list, aggregate, export, and AI-preparation attempts against another household are denied without information leakage. |
-| US-OWN-004 | As an Owner, I want to record and reconcile income and expenses so I can understand household and farm cash flow without double counting. | FR-FIN-001 to FR-FIN-006 | Phase 2 | Valid events appear once in filtered totals; invalid negative amounts are rejected; corrections preserve audit history. |
-| US-OWN-005 | As an Owner, I want to create crop categories and explicitly create separate farming investments so each crop cycle has an honest history. | FR-FARM-001 to FR-FARM-006 | Phase 3 | Creating a category creates no project; the blank state contains no fake data; one valid submission creates one household-scoped project. |
-| US-OWN-006 | As an Owner, I want to control project lifecycle, cancellation, and archive actions so inactive work is organised without erasing linked history. | FR-FARM-007 to FR-FARM-010, FR-DATA-001 | Phase 3 | Valid transitions are audited; cancellation requires a reason; archive preserves retrieval; retries do not duplicate projects. |
-| US-OWN-007 | As an Owner, I want project costs, harvests, sales, payments, and profitability calculated from traceable events so I can judge completed crop cycles. | FR-COST-001 to FR-CALC-003 | Phase 4 | Shared allocations reconcile; unpaid revenue is not cash; verified calculations handle precision, units, missing data, and zero denominators. |
-| US-OWN-008 | As an Owner, I want to compare crop history and prepare conservative, expected, and optimistic scenarios so next-season decisions show assumptions and uncertainty. | FR-DQ-001 to FR-REC-001 | Phase 5 | Rankings expose reasons and quality; scenarios are deterministic; insufficient history requests assumptions; recommendations perform no transaction. |
-| US-OWN-009 | As an Owner, I want to track remittances, debts, repayments, and receivables so external funds and obligations reconcile with cash flow. | FR-REM-001 to FR-RECV-002 | Phase 6 | Allocations and balances reconcile to canonical events; payments count once; sensitive and cross-household records remain protected. |
-| US-OWN-010 | As an Owner, I want dashboards and secure reports to use the same verified datasets so on-screen and exported figures agree. | FR-DASH-001, FR-DASH-002, FR-RPT-001 to FR-RPT-006 | Phases 7-8 | Equivalent filters reconcile; empty states are honest; files are authorised, auditable, safely named, and expire according to policy. |
-| US-OWN-011 | As an Owner, I want cautious Shan-language AI explanations of verified masked information so I can understand results without exposing unnecessary personal data or surrendering decisions. | FR-AI-001 to FR-AI-005 | Phase 9 | Prohibited fields never leave the backend; facts and forecasts are distinguished; uncertainty is stated; AI cannot originate authoritative totals or execute actions. |
-| US-OWN-012 | As an Owner, I want safe access under unstable connectivity so interrupted work does not duplicate or overwrite financial records. | FR-PWA-001, FR-OFF-001 to FR-OFF-003 | Phase 10 | Local, queued, synced, failed, and conflicted states are visible; replay creates one intended change or an explicit conflict. |
-
-## 4. Administrator stories
+## 3. Admin stories
 
 | ID | User story | Requirement references | Earliest milestone | Acceptance outcomes |
 | --- | --- | --- | --- | --- |
-| US-ADM-001 | As an Administrator, I want to manage members and delegated settings so I can support household operations without taking ownership authority. | FR-IAM-001, FR-IAM-003, FR-IAM-004, FR-HH-001 | Phase 1 | Permitted membership/settings actions succeed and are audited; ownership transfer and above-authority role grants are denied. |
-| US-ADM-002 | As an Administrator, I want to record, search, correct, and reconcile authorised household finance events so records remain complete. | FR-FIN-001 to FR-FIN-006 | Phase 2 | Backend permissions govern every action; filters and totals are correct; linked events are not counted twice. |
-| US-ADM-003 | As an Administrator, I want to maintain crop categories, projects, locations, and permitted lifecycle states so farming records follow real work. | FR-FARM-001 to FR-FARM-010 | Phase 3 | Actions remain within the household and delegated role; deletion cannot erase linked history; calculations are not manually editable. |
-| US-ADM-004 | As an Administrator, I want to record costs, allocations, harvests, sales, and payments so project profitability has complete source data. | FR-COST-001 to FR-CALC-003 | Phase 4 | Invalid allocation, unit, amount, and payment relationships are rejected; affected project totals recalculate from one service. |
-| US-ADM-005 | As an Administrator, I want to review data quality, comparisons, scenarios, and recommendation reasons so I can identify missing evidence before family decisions. | FR-DQ-001 to FR-REC-001 | Phase 5 | Quality limitations remain visible; assumptions are explicit; the administrator cannot present estimates as guaranteed facts. |
-| US-ADM-006 | As an Administrator, I want to maintain authorised remittances, allocations, debts, repayments, and receivables so balances remain current and auditable. | FR-REM-001 to FR-RECV-002 | Phase 6 | Events reconcile to household finance and do not expose another household or create negative balances silently. |
-| US-ADM-007 | As an Administrator, I want to generate authorised dashboards and reports so the household can review and share permitted information safely. | FR-DASH-001 to FR-RPT-006 | Phases 7-8 | Results use verified shared datasets; downloads enforce authorisation, safe paths, audit, and expiry. |
-| US-ADM-008 | As an Administrator, I want to view permitted audit evidence so I can investigate operational errors without seeing prohibited secrets. | FR-AUD-001, FR-AUD-002 | Phase 1 onward | Required actions correlate to safe events; passwords, tokens, full payment data, and unmasked AI payloads are absent. |
-| US-ADM-009 | As an Administrator, I want to request permitted masked AI explanations so I can communicate verified results while protecting family data. | FR-AI-001 to FR-AI-005 | Phase 9 | The request is authorised and masked; invalid output falls back safely; no AI response mutates records. |
+| US-ADMIN-001 | As the first Admin, I want to create my account and first workspace in one setup so the workspace starts with a valid owner. | FR-IAM-001, FR-WS-001 | Phase 1 | One concurrent bootstrap wins; user, workspace, Active Admin membership, ownership, and audit evidence commit atomically. |
+| US-ADMIN-002 | As an Admin, I want to configure workspace name, type, currency, timezone, language, profile, and modules so the product fits the real operation. | FR-WS-001, FR-WS-002 | Phase 1 | Valid changes retain the stable workspace ID, are audited, and do not rewrite historical facts or expose disabled data. |
+| US-ADMIN-003 | As an Admin, I want to create and manage Contributor and Advisor access so membership follows current responsibilities. | FR-IAM-003, FR-IAM-004 | Phase 1 | Create, activation restart, role change, suspension, reactivation, and revocation are authorized and audited; historical attribution remains. |
+| US-ADMIN-004 | As an Admin, I want to transfer ownership securely so the workspace never has zero or two owners. | FR-IAM-006 | Phase 1 | Reauthentication and target confirmation are required; success is atomic and failure preserves the original owner. |
+| US-ADMIN-005 | As an Admin, I want every protected action isolated to my selected workspace so no other workspace's information is mixed or exposed. | FR-AUTHZ-001 to FR-AUTHZ-006 | Phase 1 | Identifier substitution, lists, aggregates, files, reports, jobs, audit, and AI-preparation attacks are concealed and denied. |
+| US-ADMIN-006 | As an Admin, I want to approve or reject Contributor submissions so only reviewed records affect official results. | FR-FIN-007, FR-FIN-008 | Phase 2 | Pending records affect no official dataset; decisions are atomic and audited; rejected history remains. |
+| US-ADMIN-007 | As an Admin, I want household, farm, and business financial events to reconcile once so official balances are understandable. | FR-FIN-001 to FR-FIN-010 | Phase 2 | Approved canonical events count once; invalid values fail; corrections and reversals preserve history. |
+| US-ADMIN-008 | As an Admin, I want to create and manage farming investments without fabricated data so each real crop cycle has honest results. | FR-FARM-001 to FR-FARM-010 | Phase 3 | Empty states are honest, category creation creates no project, and permitted lifecycle changes preserve history. |
+| US-ADMIN-009 | As an Admin, I want verified costs, harvests, sales, profitability, comparisons, and scenarios so decisions expose evidence and uncertainty. | FR-COST-001 to FR-REC-001 | Phases 4-5 | Calculations reconcile, unavailable states are explicit, and scenarios remain estimates that perform no transaction. |
+| US-ADMIN-010 | As an Admin, I want remittances, debts, repayments, and receivables to reconcile with cash flow so obligations remain current. | FR-REM-001 to FR-RECV-002 | Phase 6 | Linked events count once, balances cannot become invalid silently, and sensitive data remains workspace-scoped. |
+| US-ADMIN-011 | As an Admin, I want Basic dashboards and secure reports to use the same Approved datasets so screen and export values agree. | FR-DASH-001 to FR-DASH-004, FR-RPT-001 to FR-RPT-006 | Phases 7-8 | Equivalent filters reconcile; empty states are honest; generated files are authorized, audited, and expire. |
+| US-ADMIN-012 | As an Admin, I want localized AI explanations of verified masked information so I can understand results without exposing unnecessary data. | FR-AI-001 to FR-AI-005, FR-I18N-001 | Phase 9 | Prohibited fields never leave the backend; facts and forecasts are distinct; AI cannot mutate data. |
 
-## 5. Family Member stories
-
-| ID | User story | Requirement references | Earliest milestone | Acceptance outcomes |
-| --- | --- | --- | --- | --- |
-| US-MEM-001 | As a Family Member, I want to sign in and see only households and actions granted to me so I can contribute without administrative access. | FR-IAM-002, FR-IAM-005, FR-AUTHZ-001 to FR-AUTHZ-005 | Phase 1 | The member selects only authorised contexts; membership, role, and settings administration is denied unless separately granted. |
-| US-MEM-002 | As a Family Member, I want to enter permitted income and expenses with clear validation so daily records are captured accurately. | FR-FIN-001 to FR-FIN-003 | Phase 2 | Valid records are household-scoped and audited; invalid amounts fail without partial data; restricted correction actions are denied. |
-| US-MEM-003 | As a Family Member, I want to add permitted farming investments explicitly so a real crop project can be tracked from the field. | FR-FARM-001 to FR-FARM-005, FR-FARM-010 | Phase 3 | A visible Add action starts the flow; category creation alone creates nothing; retries do not duplicate a project. |
-| US-MEM-004 | As a Family Member, I want to add permitted expenses, harvests, and crop sales to the correct project so source records reflect field activity. | FR-COST-001, FR-HARV-001, FR-SALE-001, FR-SALE-002 | Phase 4 | Every record checks household/project ownership and compatible units; unpaid sales remain distinct from cash. |
-| US-MEM-005 | As a Family Member, I want to see calculation availability and data-quality reasons so I know what information is incomplete. | FR-CALC-003, FR-DQ-001, FR-DQ-002 | Phases 4-5 | Missing and unreliable inputs display specific limits; no zero or graph implies completed analysis falsely. |
-| US-MEM-006 | As a Family Member, I want to contribute permitted remittance, repayment, and receivable payments so balances reflect real events. | FR-REM-001, FR-REM-002, FR-DEBT-002, FR-RECV-002 | Phase 6 | The action is denied when permission is absent; permitted events reconcile once and retain attribution. |
-| US-MEM-007 | As a Family Member, I want to view permitted dashboards, reports, and explanations so I can understand household and farm progress. | FR-DASH-001, FR-DASH-002, FR-RPT-001, FR-AI-001, FR-AI-004 | Phases 7-9 | Only authorised data appears; empty states remain honest; report/AI access follows separate permissions. |
-| US-MEM-008 | As a Family Member, I want drafts and queued entries to show their connection state so I do not repeat an action during poor connectivity. | FR-OFF-001 to FR-OFF-003 | Phase 10 | The interface distinguishes unsent, queued, failed, synced, and conflicted work and never hides a conflict. |
-| US-MEM-009 | As a Family Member, I want all primary actions in Shan-first accessible layouts so I can complete field and household tasks on a phone. | FR-UX-001, FR-I18N-001 | Incremental | Labels, focus, touch targets, validation, and translated states are understandable on supported mobile layouts. |
-
-## 6. Viewer stories
+## 4. Contributor stories
 
 | ID | User story | Requirement references | Earliest milestone | Acceptance outcomes |
 | --- | --- | --- | --- | --- |
-| US-VIEW-001 | As a Viewer, I want to sign in and view only records explicitly granted to me so I can stay informed without changing household data. | FR-IAM-002, FR-IAM-005, FR-AUTHZ-001 to FR-AUTHZ-005 | Phase 1 | Authorised read requests succeed; create, edit, archive, cancel, membership, and settings actions are denied by the backend. |
-| US-VIEW-002 | As a Viewer, I want to read permitted household finance and farming records so I can understand activity without editing source facts. | FR-FIN-004, FR-FARM-005, FR-FARM-006 | Phases 2-3 | Views are household-scoped and read-only; fabricated data and editable calculated outputs are absent. |
-| US-VIEW-003 | As a Viewer, I want to see permitted profitability, quality, and comparison results with their periods and limitations so I do not mistake incomplete analysis for fact. | FR-CALC-003, FR-DQ-001, FR-DQ-002, FR-ANL-001 | Phases 4-5 | Results show source period, units, availability, and quality; restricted planning mutations are denied. |
-| US-VIEW-004 | As a Viewer, I want to view permitted remittance, debt, and receivable summaries so I can understand obligations without altering balances. | FR-REM-001, FR-DEBT-001, FR-RECV-001 | Phase 6 | Sensitive fields follow masking policy; create and payment operations are denied unless the role changes. |
-| US-VIEW-005 | As a Viewer, I want accessible dashboards with honest empty states so I can understand verified household and farm trends. | FR-DASH-001, FR-DASH-002, FR-UX-001 | Phase 7 | Filters remain within granted data; absent data produces explanations rather than fake charts. |
-| US-VIEW-006 | As a Viewer, I want to preview or download only reports granted to me so I can use authorised information without accessing another household's files. | FR-RPT-001 to FR-RPT-006 | Phase 8 | Format and filter permissions are enforced; guessed, expired, or cross-household download identifiers fail safely. |
-| US-VIEW-007 | As a Viewer, I want to read a permitted Shan AI explanation with uncertainty and data-quality context so I can understand verified results cautiously. | FR-AI-001 to FR-AI-005 | Phase 9 | Access and masking occur before the request; the explanation cannot create data, guarantee outcomes, or expose unmasked details. |
+| US-CONTRIB-001 | As a Contributor, I want to activate my account, sign in, and select only my authorized workspaces so I can contribute safely. | FR-IAM-002, FR-IAM-005, FR-AUTHZ-001 | Phase 1 | Activation credentials are single-use; only Active memberships appear; privileges do not carry between workspaces. |
+| US-CONTRIB-002 | As a Contributor, I want to submit income and expenses for review so daily activity can be captured without changing official totals immediately. | FR-FIN-001, FR-FIN-002, FR-FIN-007 | Phase 2 | A valid submission is Pending, attributed, and absent from official balances until approved. |
+| US-CONTRIB-003 | As a Contributor, I want to edit my eligible Pending submission and see its status so I can correct it before review. | FR-FIN-007, FR-FIN-008 | Phase 2 | Only permitted Pending source fields change; Approved or Rejected facts cannot be silently rewritten. |
+| US-CONTRIB-004 | As a Contributor, I want restricted totals and reports omitted so the interface does not reveal information beyond my role. | FR-AUTHZ-003, FR-FIN-009, FR-DASH-004 | Phase 1 onward | Responses, metadata, counts, errors, files, notifications, and caches contain no restricted aggregate. |
+| US-CONTRIB-005 | As a Contributor, I want to add permitted farming, harvest, sale, remittance, repayment, or receivable submissions to the correct workspace records. | FR-FARM-001 to FR-FARM-010, FR-COST-001 to FR-RECV-002 | Phases 3-6 | References remain within one workspace, compatible values validate, and approval rules apply where required. |
+| US-CONTRIB-006 | As a Contributor, I want localized, accessible mobile forms and explicit connection/submission states so I can work reliably on a phone. | FR-UX-001, FR-I18N-001, FR-OFF-001 to FR-OFF-003 | Incremental | Labels, focus, touch targets, Pending state, local drafts, retry, failure, and conflicts are understandable. |
 
-## 7. Negative-authorisation stories
-
-These stories apply to every role and must be included in later use cases and isolation tests.
+## 5. Advisor stories
 
 | ID | User story | Requirement references | Earliest milestone | Acceptance outcomes |
 | --- | --- | --- | --- | --- |
-| US-NEG-001 | As any authenticated user, I must not access a different household by changing a URL, identifier, filter, export request, or AI target. | FR-AUTHZ-002, FR-AUTHZ-003, FR-AUTHZ-005 | Phase 1 | Every path is denied consistently without confirming that the target exists. |
-| US-NEG-002 | As a Viewer, I must not create, update, archive, cancel, allocate, pay, invite, or change roles through a direct request. | FR-AUTHZ-004, role baseline | Phase 1 onward | Backend denial occurs even if a client exposes or fabricates the request. |
-| US-NEG-003 | As a Family Member or Administrator, I must not grant permissions above my delegated authority or transfer household ownership. | FR-IAM-004 | Phase 1 | The operation is denied and safely audited. |
-| US-NEG-004 | As any user, I must not edit backend-calculated totals, report datasets, data-quality states, or AI-prepared verified values directly. | FR-FARM-006, FR-CALC-001, FR-RPT-002, FR-AI-003 | Phases 3-9 | Direct mutation is unavailable or rejected; values change only from authorised source events and deterministic rules. |
-| US-NEG-005 | As any user, I must not permanently delete linked financial or farming history through an ordinary action. | FR-FIN-006, FR-FARM-008, FR-FARM-009, FR-DATA-001 | Phase 2 onward | Only documented archive, cancel, correction, or reversal behaviour is available and audited. |
+| US-ADVISOR-001 | As an Advisor, I want to activate my account and see only workspaces where I have an Active Advisor membership. | FR-IAM-002, FR-IAM-005, FR-AUTHZ-001 | Phase 1 | Workspace selection is isolated and no membership or privilege is inferred from another workspace. |
+| US-ADVISOR-002 | As an Advisor, I want to view permitted Approved transactions, totals, debt, profitability, and quality context so my review uses official evidence. | FR-FIN-010, FR-DQ-001, FR-DQ-002 | Phases 2-5 | Pending and restricted fields are handled by policy; source period, units, availability, and quality are visible. |
+| US-ADVISOR-003 | As an Advisor, I want to comment or flag information for review so I can raise concerns without changing source facts. | FR-FIN-010 | Phase 2 | Comments and flags are attributed and audited; they do not approve, reject, or mutate a financial record. |
+| US-ADVISOR-004 | As an Advisor, I want to inspect permitted remittance, debt, receivable, dashboard, and report information without changing balances. | FR-REM-001 to FR-RPT-006 | Phases 6-8 | Reads are workspace-scoped; create, payment, approval, member, settings, and ownership actions are denied. |
+| US-ADVISOR-005 | As an Advisor, I want honest Basic dashboards and reports so missing data is not presented as a verified zero or fabricated chart. | FR-DASH-001 to FR-DASH-004, FR-RPT-001 to FR-RPT-006 | Phases 7-8 | Permitted Approved datasets reconcile and unavailable states remain explicit. |
+| US-ADVISOR-006 | As an Advisor, I want localized masked AI explanations with uncertainty so I can review verified results cautiously. | FR-AI-001 to FR-AI-005, FR-I18N-001 | Phase 9 | Authorization and masking precede the request; AI cannot guarantee outcomes or perform actions. |
 
-## 8. Capability coverage
+## 6. Negative-authorization stories
+
+These stories are mandatory inputs to use cases and isolation tests.
+
+| ID | User story | Requirement references | Earliest milestone | Acceptance outcomes |
+| --- | --- | --- | --- | --- |
+| US-NEG-001 | As any authenticated user, I must not access another workspace by changing a URL, identifier, filter, file, report request, job, audit query, or AI target. | FR-AUTHZ-001 to FR-AUTHZ-006 | Phase 1 | Every path is denied consistently without confirming that the target exists. |
+| US-NEG-002 | As a Contributor, I must not receive official totals, reports, complete debt/profit data, member administration, roles, settings, or ownership controls. | FR-AUTHZ-003, FR-FIN-009 | Phase 1 onward | Backend contracts omit restricted fields even when a client fabricates a direct request. |
+| US-NEG-003 | As an Advisor, I must not create, edit, delete, pay, approve, reject, invite, change roles, or change settings. | FR-AUTHZ-004, FR-FIN-010 | Phase 1 onward | Backend denial occurs independently of client visibility and is audited where policy requires. |
+| US-NEG-004 | As an Admin, I must not create a second Admin or remove the sole owner through a generic membership change. | FR-IAM-004, FR-IAM-006 | Phase 1 | Only the dedicated transfer flow can move ownership and exactly one owner remains. |
+| US-NEG-005 | As any user, I must not reuse expired, consumed, revoked, or replaced activation, recovery, refresh, or transfer credentials. | FR-IAM-001, FR-IAM-002, FR-IAM-006 | Phase 1 | Replay fails safely, affected sessions are revoked as designed, and secrets are not logged. |
+| US-NEG-006 | As any user, I must not edit calculated totals, report datasets, quality states, or AI-prepared verified values directly. | FR-CALC-001, FR-RPT-002, FR-AI-003 | Phases 4-9 | Direct mutation is unavailable; values change only through authorized source facts and deterministic rules. |
+| US-NEG-007 | As any user, I must not make a Pending or Rejected record affect an official dataset. | FR-FIN-007, FR-FIN-008 | Phase 2 onward | Reconciliation tests exclude non-Approved records from every official consumer. |
+| US-NEG-008 | As any user, I must not permanently delete linked financial or farming history through an ordinary action. | FR-FIN-006, FR-DATA-001 | Phase 2 onward | Only approved archive, cancel, correction, or reversal behavior is available and audited. |
+
+## 7. Capability coverage
 
 | Capability | Covered stories |
 | --- | --- |
-| Identity, roles, households, and isolation | US-OWN-001 to US-OWN-003, US-ADM-001, US-MEM-001, US-VIEW-001, US-NEG-001 to US-NEG-003 |
-| Household finance | US-OWN-004, US-ADM-002, US-MEM-002, US-VIEW-002 |
-| Farming investment foundation | US-OWN-005 to US-OWN-006, US-ADM-003, US-MEM-003, US-VIEW-002 |
-| Costs, harvests, sales, and profitability | US-OWN-007, US-ADM-004, US-MEM-004 to US-MEM-005, US-VIEW-003 |
-| Analytics and planning | US-OWN-008, US-ADM-005, US-VIEW-003 |
-| Remittances, debts, and receivables | US-OWN-009, US-ADM-006, US-MEM-006, US-VIEW-004 |
-| Dashboard | US-OWN-010, US-ADM-007, US-MEM-007, US-VIEW-005 |
-| Reports and exports | US-OWN-010, US-ADM-007, US-MEM-007, US-VIEW-006 |
-| AI adviser | US-OWN-011, US-ADM-009, US-MEM-007, US-VIEW-007 |
-| PWA, offline, accessibility, and language | US-OWN-012, US-MEM-008 to US-MEM-009 |
-| Audit and historical preservation | US-ADM-008, US-NEG-004 to US-NEG-005 |
+| Bootstrap, activation, sessions, and workspace selection | US-ADMIN-001, US-CONTRIB-001, US-ADVISOR-001, US-NEG-005 |
+| Workspace settings, membership, and ownership | US-ADMIN-002 to US-ADMIN-005, US-NEG-004 |
+| Contributor approval and restricted totals | US-ADMIN-006, US-CONTRIB-002 to US-CONTRIB-004, US-NEG-002, US-NEG-007 |
+| Advisor read, comment, flag, and mutation denial | US-ADVISOR-002 to US-ADVISOR-004, US-NEG-003 |
+| Finance, farming, and funds | US-ADMIN-007 to US-ADMIN-010, US-CONTRIB-005, US-ADVISOR-002 to US-ADVISOR-004 |
+| Dashboard, reports, and AI | US-ADMIN-011, US-ADMIN-012, US-ADVISOR-005, US-ADVISOR-006 |
+| Isolation and immutable derived values | US-ADMIN-005, US-NEG-001, US-NEG-006, US-NEG-008 |
+| Mobile, localization, and connectivity | US-CONTRIB-006, US-ADMIN-012, US-ADVISOR-006 |
 
-## 9. Delivery constraint
+## 8. Delivery constraint
 
-These stories define outcomes, not implementation tasks. A story may be implemented only when:
-
-1. its earliest milestone is active;
-2. prerequisite designs and ADRs are approved;
-3. an issue selects a coherent subset with testable acceptance criteria;
-4. household authorisation and negative paths are included; and
-5. the pull request traces the behaviour to both story and functional-requirement IDs.
-
-No API schema, database model, UI component, or application code is created by this document.
+These stories define intended outcomes only. They add no account, workspace, membership,
+financial record, endpoint, interface, AI integration, PWA behavior, or production resource.

@@ -19,7 +19,7 @@ This document creates no backup job, storage account, key, archive, database cop
 7. At least one backup copy is outside the primary server and primary account/provider failure boundary.
 8. Restores never overwrite the only surviving evidence or the failed production source before preservation decisions.
 9. Restored environments deny public access and disable email, Gemini and other external side effects.
-10. Recovery success requires exact financial reconciliation and household-isolation evidence, not only service startup.
+10. Recovery success requires exact financial reconciliation and workspace-isolation evidence, not only service startup.
 11. Retention expiry is deliberate, auditable and tested; indefinite accumulation is a privacy and cost failure.
 12. Objectives remain provisional until timed drills prove them on production-like volume and replacement infrastructure.
 
@@ -136,7 +136,7 @@ Values are provisional until cost, legal/business need, dataset growth and resto
 | Continuous WAL archive | 35 days minimum and never less than required by retained PITR base backups | Delete only after chain graph proves no retained point depends on it |
 | Weekly logical dump/roles copy | 5 weekly and 12 monthly points | Restore compatibility evidence and encryption retained |
 | Backup catalog/manifests/integrity results | 13 months after represented set expires | Contains safe metadata only |
-| Restore drill record | 24 months | Contains no restored household content or credentials |
+| Restore drill record | 24 months | Contains no restored workspace content or credentials |
 | Backup/expiry operational logs | 90 days | Safe categories only; audit evidence follows audit retention |
 
 Retention uses generation/cutoff instants in UTC and prevents premature expiry caused by failed later backups. A new failed/corrupt backup never ages out the last known good recovery set.
@@ -161,7 +161,7 @@ Each scheduled run:
 
 States are `STARTED`, `UPLOADED`, `VERIFIED`, `ELIGIBLE`, `FAILED`, `QUARANTINED` and `EXPIRED`. A partial set is never `ELIGIBLE`.
 
-Backup logs contain backup ID, safe source/version, times, bytes/counts, checksum algorithm/result, copy state, result code and correlation. They exclude archive names derived from household data, record values, credentials, key material and raw command output that may contain secrets.
+Backup logs contain backup ID, safe source/version, times, bytes/counts, checksum algorithm/result, copy state, result code and correlation. They exclude archive names derived from workspace data, record values, credentials, key material and raw command output that may contain secrets.
 
 ## 11. Backup monitoring and alerts
 
@@ -228,7 +228,7 @@ Required checks must have zero unexplained difference:
 - constraints, indexes and expected extensions;
 - critical table/entity row counts by safe aggregate;
 - no orphan/missing protected-file metadata or required bytes;
-- complete two-household isolation suite, including jobs/files/reports/audit/AI preparation;
+- complete two-workspace isolation suite, including jobs/files/reports/audit/AI preparation;
 - canonical financial-event reconciliation and representative income/expense/cash totals;
 - farming cost allocations, harvest/sales, debt and receivable balances;
 - audit references/correlation and required historical states;
@@ -236,7 +236,7 @@ Required checks must have zero unexplained difference:
 - application readiness, authentication and critical synthetic smoke flow; and
 - monitoring, backup scheduling and alert delivery on the replacement environment.
 
-Sampled checks use authorised operators and do not copy household content into the recovery record. Any unexplained difference blocks return to service.
+Sampled checks use authorised operators and do not copy workspace content into the recovery record. Any unexplained difference blocks return to service.
 
 ### 13.5 Cut over and close
 

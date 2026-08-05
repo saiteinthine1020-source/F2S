@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-05
 - **Decision owners:** F2S maintainers
-- **Applies from:** Phase 1 - Authentication and Household
+- **Applies from:** Phase 1 - Authentication and Workspace
 
 ## Context
 

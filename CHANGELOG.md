@@ -12,6 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Repository milestones, issue plan, governance and initialisation guidance.
 - Repository security, contribution, conduct and changelog policies.
 - Least-privilege Phase 0 repository validation for Markdown, links, Compose configuration, secret hygiene and prohibited generated files.
+- ADR-003 and an initial typed FastAPI modular-monolith skeleton with safe settings, liveness behavior, locked tooling, tests, CI and a non-root local container.
 
 ### Security
 

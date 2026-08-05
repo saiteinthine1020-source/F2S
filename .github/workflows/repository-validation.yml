@@ -63,6 +63,71 @@ jobs:
           F2S_POSTGRES_PASSWORD: ci-validation-placeholder-not-a-secret
         run: docker compose --env-file .env.example config --quiet
 
+      - name: Build backend container
+        run: docker compose --env-file .env.example build api
+
+  backend-static:
+    name: Backend static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install locked Python tooling
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.1"
+          python-version: "3.13.14"
+          working-directory: backend
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Synchronise locked dependencies
+        run: uv sync --frozen --all-groups
+
+      - name: Check formatting
+        run: uv run --frozen ruff format --check .
+
+      - name: Lint backend
+        run: uv run --frozen ruff check .
+
+      - name: Type-check backend
+        run: uv run --frozen mypy app tests
+
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install locked Python tooling
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.1"
+          python-version: "3.13.14"
+          working-directory: backend
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Synchronise locked dependencies
+        run: uv sync --frozen --all-groups
+
+      - name: Run baseline tests
+        run: uv run --frozen pytest
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-24.04

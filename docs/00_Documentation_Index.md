@@ -35,6 +35,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Data Dictionary](21_Data_Dictionary.md) | Defines canonical business terms, entity and field meanings, states, classifications, currencies, units, and ownership. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
 | [ADR-002: Use PostgreSQL](adr/ADR-002-use-postgresql.md) | Selects the primary relational database and defines ownership, transaction, privilege, backup, and fitness rules. | Approved |
+| [ADR-003: Use FastAPI](adr/ADR-003-use-fastapi.md) | Selects FastAPI for the typed HTTP boundary while preserving framework-independent domain modules. | Approved |
 | [ADR-008: Use Decimal-Safe Financial Numeric Storage](adr/ADR-008-safe-financial-numeric-storage.md) | Defines exact numeric types, currency, precision, scale, rounding, allocation, exchange-rate, and zero-denominator rules. | Approved |
 | [GitHub Milestones](project_management/GitHub_Milestones.md) | Defines all 12 delivery milestones. | Baseline |
 | [First 20 GitHub Issues](project_management/First_20_GitHub_Issues.md) | Proposes the first ordered, independently reviewable issues. | Baseline |
@@ -63,15 +64,14 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 
 The following decisions require separate ADRs before their corresponding implementation:
 
-1. ADR-003 Use FastAPI
-2. ADR-004 Use React and TypeScript
-3. ADR-005 Use Hetzner Cloud
-4. ADR-006 Use Gemini API
-5. ADR-007 Use Backend-Generated Reports
-6. ADR-009 Use a PWA for Unstable Connectivity
-7. ADR-010 Use XlsxWriter for Excel Reporting
-8. ADR-011 Use Deterministic Crop Forecasting
-9. ADR-012 Use Household-Level Data Isolation
+1. ADR-004 Use React and TypeScript
+2. ADR-005 Use Hetzner Cloud
+3. ADR-006 Use Gemini API
+4. ADR-007 Use Backend-Generated Reports
+5. ADR-009 Use a PWA for Unstable Connectivity
+6. ADR-010 Use XlsxWriter for Excel Reporting
+7. ADR-011 Use Deterministic Crop Forecasting
+8. ADR-012 Use Household-Level Data Isolation
 
 ## Documentation governance
 

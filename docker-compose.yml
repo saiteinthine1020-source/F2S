@@ -1,4 +1,35 @@
 services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      F2S_ENVIRONMENT: local
+      F2S_DEBUG: "false"
+      F2S_DOCS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${F2S_API_HOST_PORT:-8000}:8000"
+    networks:
+      - data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    init: true
+    stop_grace_period: 30s
+
   postgres:
     image: postgres:18.4-trixie
     environment:

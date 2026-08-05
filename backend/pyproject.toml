@@ -1,0 +1,41 @@
+[project]
+name = "f2s-backend"
+version = "0.1.0"
+description = "F2S modular-monolith backend"
+requires-python = "==3.13.*"
+dependencies = [
+    "fastapi==0.141.1",
+    "pydantic==2.13.4",
+    "pydantic-settings==2.14.2",
+    "uvicorn==0.52.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2==2.7.0",
+    "mypy==2.3.0",
+    "pytest==9.1.1",
+    "ruff==0.16.1",
+]
+
+[tool.uv]
+package = false
+required-version = "==0.12.1"
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -ra"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+strict = true
+files = ["app", "tests"]

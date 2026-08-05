@@ -42,6 +42,50 @@ The default stack is:
 
 Any material change to this stack requires an Architecture Decision Record (ADR).
 
+## Local Docker foundation
+
+Issue #18 introduces only the local PostgreSQL infrastructure boundary. It does not create an application service, database schema, migration, API, authentication flow, or sample data.
+
+Prerequisites:
+
+- a maintained Docker Desktop or Docker Engine release; and
+- Docker Compose v5.1 or a compatible newer release using the current Compose Specification.
+
+Create the ignored local environment file in PowerShell, then replace the placeholder password with a long, local-only value:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Validate and start the service:
+
+```powershell
+docker compose config --quiet
+docker compose up -d postgres
+docker compose ps
+```
+
+`postgres` is healthy when `docker compose ps` reports `healthy`. Run these smoke checks without printing the password:
+
+```powershell
+docker compose exec postgres pg_isready --username=f2s_local_owner --dbname=f2s_local
+docker compose exec postgres psql --username=f2s_local_owner --dbname=f2s_local --command="SELECT current_database();"
+```
+
+If `F2S_POSTGRES_USER` or `F2S_POSTGRES_DB` was changed in `.env`, use those values in the smoke commands. Stop the service while retaining its local data:
+
+```powershell
+docker compose down
+```
+
+To reset only this Compose project's local PostgreSQL volume, use the following deliberately destructive command. It permanently removes the local database contents:
+
+```powershell
+docker compose down --volumes
+```
+
+The database port is published only on IPv4 loopback (`127.0.0.1`) for local tools. The container also joins the private `data` network for future application services. Production must not publish PostgreSQL on any host interface; see the [Deployment Design](docs/18_Deployment_Design.md).
+
 ## Proposed final monorepo structure
 
 The directories below describe the intended end state. Phase 0 does not create application code or placeholder configuration for later phases.

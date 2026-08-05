@@ -292,6 +292,31 @@ Local setup uses the same named frontend, API, worker where applicable and Postg
 
 Developer hot reload or debug ports bind to loopback and never appear in production configuration. Compose production overlays are validated to prove they disable source mounts, reload/debug, fake providers, default credentials and public database/backend ports.
 
+### 15.1 Phase 0 local foundation implemented by Issue #18
+
+The first implementation slice contains one `postgres` service only. Frontend, API, worker, migrations, authentication, business features, database schema and sample data remain out of scope. The root `docker-compose.yml` is the executable definition and the root README is the operator quick start.
+
+| Boundary | Phase 0 implementation | Security and persistence rule |
+|---|---|---|
+| Image | Docker Official Image `postgres:18.4-trixie` | Exact PostgreSQL patch and Debian variant are pinned; `latest` is forbidden |
+| Host exposure | Container port `5432` published as `127.0.0.1:${F2S_POSTGRES_HOST_PORT:-5432}` | Local IPv4 loopback only; this publish must not be copied into production |
+| Container network | Compose bridge network `data` | Private service-to-service boundary; no edge network exists in this slice |
+| Persistent storage | Named volume `postgres_data` mounted at `/var/lib/postgresql` | PostgreSQL 18 creates versioned `PGDATA` below this parent; `down --volumes` is an explicit destructive reset |
+| Credentials | `F2S_POSTGRES_PASSWORD` is required from ignored `.env`; database, user and host port have local defaults | `.env.example` contains placeholders only; no real or production credential is committed |
+| Health | `pg_isready` checks the configured user and database | No secret or household data appears in the command or output |
+
+PostgreSQL 18.4 was the current supported minor release when this implementation decision was recorded on 2026-08-05. A future version change requires a reviewed dependency update plus clean-start, persistence, migration/upgrade and restore evidence; changing a tag is not an upgrade plan. Docker Desktop/Engine must be a maintained release. Docker Compose v5.1 or a compatible newer release must implement the current Compose Specification used by this file.
+
+Validation evidence for Issue #18:
+
+- `git check-ignore -v .env`: required to prove the local secret file is excluded;
+- `docker compose config --quiet`: required after `.env` is created;
+- `docker compose up -d postgres` and `docker compose ps`: required to prove startup and healthy state;
+- `pg_isready` and the README's read-only `SELECT current_database()` command: required smoke checks; and
+- `docker compose down`: required clean stop, with `docker compose down --volumes` documented but used only for an intentional local-data reset.
+
+Evidence uses the statuses in Section 21. Checksum-verified Docker Compose v5.1.4 returned `PASS` for `config --quiet` using `.env.example` on 2026-08-05. Docker Engine was not installed or not available on `PATH` on the authoring workstation, so container startup, health, persistence and database smoke checks were `NOT RUN`, not `PASS`. Those runtime checks remain required before this foundation is merged.
+
 ## 16. Build and release artifacts
 
 CI builds frontend and backend runtime images once from a clean commit with locked dependencies. Release evidence records source commit, image digest, build time, base/dependency versions, tests, secret scan, dependency/container scan, SBOM and provenance. Critical/High findings block production unless the Security Design's time-bound risk-acceptance rule is satisfied.

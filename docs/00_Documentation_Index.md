@@ -25,6 +25,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [REST API Design](09_API_Design.md) | Defines versioned resources, methods, formats, authorisation, pagination, idempotency, errors, and compatibility. | Baseline |
 | [UI/UX Design](10_UI_UX_Design.md) | Defines Shan-first mobile layouts, navigation, internationalisation, accessibility, forms, and honest interface states. | Baseline |
 | [Farming Investment Design](11_Farming_Investment_Design.md) | Defines the core farming-investment concept, empty states, creation flow, calculation states, and lifecycle. | Baseline |
+| [AI Design](14_AI_Design.md) | Defines verified-data input, minimisation, masking, provider isolation, response validation, Shan fallback, and safe audit. | Baseline |
 | [Security Design](15_Security_Design.md) | Defines assets, trust boundaries, threats, controls, security baselines, privacy limits, and verification. | Baseline |
 | [Report and Export Design](16_Report_Export_Design.md) | Defines shared verified datasets, PDF/Excel/CSV behavior, accessible charts, protected artifacts, and cleanup. | Baseline |
 | [Test Strategy](17_Test_Strategy.md) | Defines test levels, synthetic fixtures, critical suites, traceability, honest results, milestone gates, and CI policy. | Baseline |
@@ -43,7 +44,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | --- | --- | --- |
 | `docs/12_Crop_Analytics_Design.md` | Historical comparisons and transparent indicators | Phase 5 |
 | `docs/13_Forecasting_Design.md` | Deterministic scenarios, assumptions, and uncertainty | Phase 5 |
-| `docs/14_AI_Design.md` | Verified-data flow, masking, validation, and Shan explanations | Phase 9 |
 | `docs/18_Deployment_Design.md` | Docker, Nginx, Hetzner, SSL, and delivery topology | Phase 0/11 |
 | `docs/19_Operations_Runbook.md` | Production operation and incident procedures | Phase 11 |
 | `docs/20_Backup_Recovery.md` | Backup protection, restore, and recovery verification | Phase 11 |

@@ -29,6 +29,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Security Design](15_Security_Design.md) | Defines assets, trust boundaries, threats, controls, security baselines, privacy limits, and verification. | Baseline |
 | [Report and Export Design](16_Report_Export_Design.md) | Defines shared verified datasets, PDF/Excel/CSV behavior, accessible charts, protected artifacts, and cleanup. | Baseline |
 | [Test Strategy](17_Test_Strategy.md) | Defines test levels, synthetic fixtures, critical suites, traceability, honest results, milestone gates, and CI policy. | Baseline |
+| [Deployment Design](18_Deployment_Design.md) | Defines reproducible local and Hetzner production topology, networks, TLS, PostgreSQL isolation, storage, secrets, health, and recovery boundaries. | Baseline |
 | [Data Dictionary](21_Data_Dictionary.md) | Defines canonical business terms, entity and field meanings, states, classifications, currencies, units, and ownership. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
 | [ADR-002: Use PostgreSQL](adr/ADR-002-use-postgresql.md) | Selects the primary relational database and defines ownership, transaction, privilege, backup, and fitness rules. | Approved |
@@ -44,7 +45,6 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | --- | --- | --- |
 | `docs/12_Crop_Analytics_Design.md` | Historical comparisons and transparent indicators | Phase 5 |
 | `docs/13_Forecasting_Design.md` | Deterministic scenarios, assumptions, and uncertainty | Phase 5 |
-| `docs/18_Deployment_Design.md` | Docker, Nginx, Hetzner, SSL, and delivery topology | Phase 0/11 |
 | `docs/19_Operations_Runbook.md` | Production operation and incident procedures | Phase 11 |
 | `docs/20_Backup_Recovery.md` | Backup protection, restore, and recovery verification | Phase 11 |
 

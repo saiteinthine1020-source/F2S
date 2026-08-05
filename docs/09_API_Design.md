@@ -2,16 +2,16 @@
 
 ## 1. Purpose and scope
 
-This document defines the future F2S REST contract under `/api/v1/`: resources, methods, representation formats, authentication, household authorisation, validation, pagination, filtering, sorting, concurrency, idempotency, rate limiting, correlation, errors, asynchronous work, files, and compatibility.
+This document defines the future F2S REST contract under `/api/v1/`: resources, methods, representation formats, authentication, workspace authorisation, validation, pagination, filtering, sorting, concurrency, idempotency, rate limiting, correlation, errors, asynchronous work, files, and compatibility.
 
 It follows the [Functional Requirements](03_Functional_Requirements.md), [Use Cases](06_Use_Cases.md), [System Architecture](07_System_Architecture.md), [Database Design](08_Database_Design.md), and accepted numeric ADRs. It creates no FastAPI route, Pydantic schema, OpenAPI document, middleware, token, database object, or application code.
 
-All examples are synthetic contract illustrations. UUIDs use reserved-looking zero-filled values and do not identify a real household, user, transaction, or farm.
+All examples are synthetic contract illustrations. UUIDs use reserved-looking zero-filled values and do not identify a real workspace, user, transaction, or farm.
 
 ## 2. Contract principles
 
 1. Resources are nouns; methods and explicit subresources express intent.
-2. Every household resource path includes `household_id`; the backend verifies active membership, capability, and every referenced resource.
+2. Every workspace resource path includes `workspace_id`; the backend verifies Active membership, capability, and every referenced resource.
 3. Frontend visibility, client role claims, cached permissions, and guessed UUIDs are never authorisation.
 4. Authoritative decimals cross JSON as strings and retain currency/unit context.
 5. Every unsafe retry has an explicit idempotency policy; every mutable aggregate has explicit concurrency behavior.
@@ -37,7 +37,7 @@ All examples are synthetic contract illustrations. UUIDs use reserved-looking ze
 | --- | --- |
 | Resource collection | Plural lowercase kebab-case: `/farming-investments` |
 | Resource identifier | UUID path segment: `/farming-investments/{investment_id}` |
-| Household scope | `/households/{household_id}/...` for every household resource |
+| Workspace scope | `/workspaces/{workspace_id}/...` for every workspace resource |
 | JSON fields | Lowercase `snake_case`, aligned with canonical data terms |
 | Machine codes | Stable uppercase values such as `ACTIVE` or `VALIDATION_FAILED` |
 | Dates | ISO 8601 full date: `2026-01-15` |
@@ -58,7 +58,7 @@ The API never uses an unlabeled numeric `amount`, `rate`, `total`, or `balance` 
 {
   "data": {
     "id": "00000000-0000-4000-8000-000000000201",
-    "household_id": "00000000-0000-4000-8000-000000000101",
+    "workspace_id": "00000000-0000-4000-8000-000000000101",
     "status": "ACTIVE",
     "version": 3,
     "updated_at": "2026-01-15T03:04:05Z"
@@ -95,52 +95,73 @@ An empty authorised collection is `200 OK` with `data: []`; it is not `404` and 
 
 ## 6. Authentication and session endpoints
 
-Protected requests use:
+Protected requests use a short-lived opaque access credential:
 
-`Authorization: Bearer <access-token>`
+`Authorization: Bearer <opaque-access-credential>`
 
-The token is transmitted only in the header. Exact token format, signing, lifetimes, rotation grace, cookie/refresh transport, revocation storage, password rules, and CSRF design are finalized by Issue #11. The stable resource intentions are:
+The access credential is transmitted only in the header. Rotating opaque refresh credentials are server-side sessions delivered through the approved `__Host-` Secure, HttpOnly, SameSite cookie and protected by CSRF and Origin checks. Raw credentials never persist. The stable Phase 1 route families are:
 
 | Method and path | Purpose | Auth state |
 | --- | --- | --- |
-| `POST /api/v1/auth/activations` | Activate eligible invitation/account | Eligible activation evidence |
-| `POST /api/v1/auth/sessions` | Authenticate and create session | Public with rate limit; no account enumeration |
-| `POST /api/v1/auth/session-refreshes` | Rotate an eligible refresh session | Valid refresh credential |
-| `DELETE /api/v1/auth/session` | Revoke current session/logout | Authenticated/current refresh context as designed |
-| `POST /api/v1/auth/password-changes` | Change current password | Authenticated plus current/step-up proof |
+| `POST /api/v1/setup/bootstrap` | Atomically create the first account, workspace, Active Admin owner membership, and audit evidence | Available only before bootstrap completion |
+| `POST /api/v1/auth/activate` | Activate eligible account/membership | Eligible single-use activation evidence |
+| `POST /api/v1/auth/login` | Authenticate and create server-side session | Public with rate limit; no account enumeration |
+| `POST /api/v1/auth/refresh` | Rotate an eligible refresh session | Valid refresh credential plus CSRF/Origin controls |
+| `POST /api/v1/auth/logout` | Revoke current session/logout | Authenticated/current refresh context as designed |
+| `POST /api/v1/auth/password/change` | Change current password | Authenticated plus current/step-up proof |
+| `POST /api/v1/auth/recovery/request` | Begin concealed recovery | Public with rate limit and indistinguishable response |
+| `POST /api/v1/auth/recovery/confirm` | Complete eligible recovery and required revocation | Valid single-use recovery evidence |
 | `GET /api/v1/me` | Return safe current actor/account summary | Authenticated |
-| `GET /api/v1/me/households` | Return memberships eligible for selection | Authenticated |
+| `GET /api/v1/me/workspaces` | Return Active memberships eligible for selection | Authenticated |
 
-Invalid, expired, reused, revoked, or deactivated credentials return safe authentication errors. Login, activation, refresh, and recovery responses do not reveal whether an unrelated account exists.
+Invalid, expired, reused, revoked, or inactive credentials return safe authentication errors. Login, activation, refresh, and recovery responses do not reveal whether an unrelated account exists.
 
-## 7. Household context and authorisation
+Phase 1 workspace and membership routes are:
 
-All household business paths begin:
+| Method and path | Purpose | Required authority |
+| --- | --- | --- |
+| `POST /api/v1/workspaces` | Create an additional workspace with its Active Admin owner atomically | Authenticated eligible account |
+| `GET /api/v1/workspaces/{workspace_id}` | Read permitted workspace metadata and module configuration | Active workspace membership |
+| `PATCH /api/v1/workspaces/{workspace_id}` | Change documented settings without changing stable identity/history | Admin |
+| `GET /api/v1/workspaces/{workspace_id}/members` | List safe workspace membership information | Admin |
+| `POST /api/v1/workspaces/{workspace_id}/members` | Create Pending Contributor or Advisor access | Admin |
+| `PATCH /api/v1/workspaces/{workspace_id}/members/{membership_id}` | Change permitted profile, role, or suspension state | Admin; cannot create/remove Admin ownership |
+| `POST /api/v1/workspaces/{workspace_id}/members/{membership_id}/reactivate` | Reactivate an eligible membership | Admin |
+| `POST /api/v1/workspaces/{workspace_id}/members/{membership_id}/activation/restart` | Revoke prior activation evidence and issue a replacement | Admin |
+| `DELETE /api/v1/workspaces/{workspace_id}/members/{membership_id}` | Revoke eligible Contributor or Advisor access | Admin |
+| `POST /api/v1/workspaces/{workspace_id}/ownership-transfers` | Initiate dedicated high-assurance ownership transfer | Current owner with recent reauthentication |
+| `POST /api/v1/workspaces/{workspace_id}/ownership-transfers/{transfer_id}/confirm` | Confirm and atomically complete eligible transfer | Confirmed target plus transfer proof |
 
-`/api/v1/households/{household_id}`
+Bootstrap, workspace creation, member creation, activation restart, recovery confirmation, and ownership-transfer confirmation define explicit idempotency and concurrency behavior. Generic membership mutation never creates a second Admin, removes the sole owner, or transfers ownership.
+
+## 7. Workspace context and authorisation
+
+All workspace business paths begin:
+
+`/api/v1/workspaces/{workspace_id}`
 
 Examples:
 
-- `/api/v1/households/{household_id}/financial-events`
-- `/api/v1/households/{household_id}/farming-investments/{investment_id}`
-- `/api/v1/households/{household_id}/reports/{report_request_id}`
+- `/api/v1/workspaces/{workspace_id}/financial-events`
+- `/api/v1/workspaces/{workspace_id}/farming-investments/{investment_id}`
+- `/api/v1/workspaces/{workspace_id}/reports/{report_request_id}`
 
 The backend performs, in order:
 
 1. authenticate the actor;
-2. load an active membership for the path household;
-3. evaluate the required capability against current role/delegation;
-4. verify every path/body/query reference belongs to the same household;
-5. scope repository queries by household; and
+2. load an Active membership for the path workspace;
+3. evaluate the required capability against the current `ADMIN`, `CONTRIBUTOR`, or `ADVISOR` role;
+4. verify every path/body/query reference belongs to the same workspace;
+5. scope repository queries by workspace; and
 6. record policy-required safe audit evidence.
 
-An `X-Household-ID` header does not override the path and is not an authorisation source. Body `household_id` is omitted where the path already supplies it or, if present in a documented schema, must match exactly.
+An `X-Workspace-ID` header does not override the path and is not an authorisation source. Body `workspace_id` is omitted where the path already supplies it or, if present in a documented schema, must match exactly. Client-supplied user, role, owner, approval, or workspace claims are never authoritative.
 
 Response semantics:
 
 - Missing/invalid authentication: `401 UNAUTHENTICATED`.
-- Authenticated actor lacks a general known capability in their household: `403 PERMISSION_DENIED`.
-- Unknown, foreign-household, or intentionally concealed resource identifier: `404 RESOURCE_NOT_FOUND`, identical safe shape.
+- Authenticated actor lacks a general known capability in their workspace: `403 PERMISSION_DENIED`.
+- Unknown, foreign-workspace, or intentionally concealed resource identifier: `404 RESOURCE_NOT_FOUND`, identical safe shape.
 - Inactive/deactivated membership: `403 MEMBERSHIP_INACTIVE` without protected data.
 
 ## 8. HTTP method semantics
@@ -167,10 +188,12 @@ These commands require confirmation fields/reasons where specified and return th
 
 The catalogue defines resource families, not complete route/schema implementation.
 
-| Household-relative collection | Typical methods | Notes |
+| Workspace-relative collection | Typical methods | Notes |
 | --- | --- | --- |
-| `/memberships`, `/invitations` | GET, POST, PATCH plus activation/deactivation/role subresources | Owner/delegated admin only; ownership transfer separate |
-| `/settings`, `/farm-locations` | GET/PATCH; GET/POST/PATCH/archive | Consequential changes confirmed/audited |
+| `/members` | GET, POST, PATCH, DELETE plus reactivation and activation-restart subresources | Admin only; roles limited to Contributor/Advisor; ownership transfer separate |
+| `/ownership-transfers` | POST plus confirmation subresource | Dedicated recent-reauthenticated owner flow; never generic role PATCH |
+| Workspace resource and module configuration | GET/PATCH workspace; validated module changes | Admin only; consequential changes confirmed/audited |
+| `/farm-locations` | GET/POST/PATCH/archive | Workspace-scoped; historical references preserved |
 | `/finance-categories`, `/crop-categories` | GET/POST/PATCH/archive | Archive preserves history |
 | `/financial-events` | GET/POST; item GET; reversal subresource | Posted facts immutable; filtered authorised lists |
 | `/farming-investments` | GET/POST/PATCH; lifecycle subresources | Calculated fields read-only |
@@ -211,7 +234,7 @@ Nested resources are used when the parent is necessary to establish meaning, suc
 
 Example:
 
-`GET /api/v1/households/{household_id}/financial-events?page_size=25&after=<opaque>&sort=-occurred_on,id`
+`GET /api/v1/workspaces/{workspace_id}/financial-events?page_size=25&after=<opaque>&sort=-occurred_on,id`
 
 ### 11.2 Filters
 
@@ -219,7 +242,7 @@ Filters are explicit allowlisted query parameters, for example `status`, `occurr
 
 - Date ranges are inclusive/exclusive semantics documented per field and validated for order.
 - Unknown filters return `400 UNKNOWN_FILTER` rather than being ignored.
-- A filter referencing another household is safely not found/denied and never broadens results.
+- A filter referencing another workspace is safely not found/denied and never broadens results.
 - Free-text search is purpose-specific, length-limited, normalised, escaped/parameterised, and never searches Restricted fields by default.
 
 ### 11.3 Sorting
@@ -249,7 +272,7 @@ Mutable resource responses include:
 Rules:
 
 1. Key is an opaque client-generated bounded value and contains no personal data.
-2. Scope includes authenticated actor/current authority, household, method, canonical route/operation, and key.
+2. Scope includes authenticated actor/current authority, workspace, method, canonical route/operation, and key.
 3. Server stores a canonical request fingerprint and outcome for the approved retry window.
 4. Same key and same fingerprint returns the original status/body/Location where safe, with replay metadata.
 5. Same key and different fingerprint returns `409 IDEMPOTENCY_KEY_REUSED`.
@@ -265,7 +288,7 @@ Idempotency does not replace optimistic concurrency, uniqueness constraints, or 
 - Server generates a correlation ID when absent and always returns `X-Correlation-ID`.
 - Every error envelope includes `correlation_id`.
 - Correlation propagates to safe logs, audit intent, database transaction metadata where appropriate, report/AI requests, and external-call metadata.
-- Correlation IDs contain no household/user/business meaning and do not grant access.
+- Correlation IDs contain no workspace/user/business meaning and do not grant access.
 
 ## 15. Error contract
 
@@ -293,7 +316,7 @@ Rules:
 - `code` is stable and used by clients/tests; HTTP reason text and translated UI messages are not stable identifiers.
 - `message` is safe English fallback; clients map code/details to localised Shan-first text.
 - `details` is optional and ordered deterministically; field paths use request JSON names.
-- Errors contain no stack trace, SQL, secret, token, internal class/path, raw provider payload, another household's existence, or prohibited personal/payment data.
+- Errors contain no stack trace, SQL, secret, token, internal class/path, raw provider payload, another workspace's existence, or prohibited personal/payment data.
 - HTML proxy errors are normalised where the edge/backend contract allows; clients must still handle transport failure.
 
 ### 15.1 Status and stable code catalogue
@@ -302,7 +325,7 @@ Rules:
 | --- | --- | --- |
 | 400 | `MALFORMED_REQUEST`, `INVALID_CURSOR`, `UNKNOWN_FILTER`, `INVALID_SORT` | Request/query cannot be interpreted safely |
 | 401 | `UNAUTHENTICATED`, `SESSION_EXPIRED`, `TOKEN_REUSED` | Authentication absent/invalid/expired/reused |
-| 403 | `PERMISSION_DENIED`, `MEMBERSHIP_INACTIVE` | Known household capability denied without foreign-resource disclosure |
+| 403 | `PERMISSION_DENIED`, `MEMBERSHIP_INACTIVE` | Known workspace capability denied without foreign-resource disclosure |
 | 404 | `RESOURCE_NOT_FOUND` | Missing or concealed foreign resource; same safe shape |
 | 409 | `CONFLICT`, `DUPLICATE_RESOURCE`, `IDEMPOTENCY_KEY_REUSED`, `INVALID_STATE_TRANSITION` | Current state/uniqueness/replay conflict |
 | 412 | `VERSION_MISMATCH` | `If-Match` no longer current |
@@ -317,11 +340,11 @@ Specific validation detail codes include `REQUIRED`, `INVALID_FORMAT`, `OUT_OF_R
 
 ## 16. Rate limiting and abuse controls
 
-- Limits are defined by endpoint/risk class, actor, household, credential/IP/device signals as approved by Issue #11; exact numbers are `TBD-VALIDATE`.
+- Limits are defined by endpoint/risk class, actor, workspace, credential/IP/device signals as approved by the security design; exact numbers are `TBD-VALIDATE`.
 - Authentication, activation/recovery, uploads, report generation, exports, AI, and expensive search/aggregation have distinct policies.
 - A rejected request returns `429 RATE_LIMITED`, safe message/correlation, and `Retry-After` when the server knows the delay.
-- Rate-limit metadata never reveals another account/household or internal capacity.
-- Limits are enforced before expensive/provider work and cannot be bypassed by changing household IDs or idempotency keys.
+- Rate-limit metadata never reveals another account/workspace or internal capacity.
+- Limits are enforced before expensive/provider work and cannot be bypassed by changing workspace IDs or idempotency keys.
 - Successful idempotent replay may have a separate low-cost policy but still checks abuse controls.
 
 ## 17. Asynchronous requests
@@ -338,28 +361,28 @@ Report generation, AI advice, and other approved long-running work use request r
 
 ## 18. Files and downloads
 
-- Upload request is authorised for household, purpose, parent resource, type, and size before content is accepted.
+- Upload request is authorised for workspace, purpose, parent resource, type, and size before content is accepted.
 - User filename is metadata only; storage key/path is server generated.
 - Media type, extension, content signature, checksum, and malware/quarantine policy follow Issue #11/#13.
 - Upload status is explicit; partial/quarantined/failed file is unavailable.
-- Download uses an authorised endpoint or short-lived unguessable reference; access rechecks household, purpose, resource, status, and expiry.
+- Download uses an authorised endpoint or short-lived unguessable reference; access rechecks workspace, purpose, resource, status, and expiry.
 - `Content-Disposition` uses a sanitised safe filename.
 - Range/caching behavior is explicitly allowlisted; protected JSON/files default to `Cache-Control: no-store` unless a later design safely approves private caching.
-- Cross-household, traversed, expired, or guessed file references return safe not-found behavior.
+- Cross-workspace, traversed, expired, or guessed file references return safe not-found behavior.
 
 ## 19. Caching and conditional requests
 
 - Protected business responses default to `Cache-Control: no-store` until endpoint-specific private caching is approved.
 - ETag is used for concurrency/conditional reads where documented, not shared public caching.
-- `304 Not Modified` may be used only when authorisation is revalidated and representation scope/filters/household are identical.
-- API/proxy caches must include authorisation and household boundaries; a shared cache of household responses is prohibited by default.
+- `304 Not Modified` may be used only when authorisation is revalidated and representation scope/filters/workspace are identical.
+- API/proxy caches must include authorisation and workspace boundaries; a shared cache of workspace responses is prohibited by default.
 
 ## 20. Compatibility and deprecation
 
 - `/api/v1` is the first major contract. Paths, field meaning, numeric semantics, permission behavior, and stable error codes are compatibility surface.
 - Additive optional response fields may be added within v1; clients must ignore unknown response fields.
 - Request schemas reject unknown fields unless a documented extension object exists.
-- Removing/renaming fields, changing meaning/type/nullability, narrowing accepted values unexpectedly, changing auth/household semantics, or reusing an error/state code requires v2 or an approved staged migration.
+- Removing/renaming fields, changing meaning/type/nullability, narrowing accepted values unexpectedly, changing auth/workspace semantics, or reusing an error/state code requires v2 or an approved staged migration.
 - Deprecation is documented with replacement, notice period, telemetry/privacy review, and when applicable `Deprecation`/`Sunset`/`Link` headers.
 - Retired codes remain documented and are not reused for different meaning.
 - Database identifiers/internal module names are not API compatibility guarantees unless explicitly exposed.
@@ -369,7 +392,7 @@ Report generation, AI advice, and other approved long-running work use request r
 ### 21.1 Create a farming investment
 
 ```http
-POST /api/v1/households/00000000-0000-4000-8000-000000000101/farming-investments HTTP/1.1
+POST /api/v1/workspaces/00000000-0000-4000-8000-000000000101/farming-investments HTTP/1.1
 Authorization: Bearer <access-token>
 Content-Type: application/json
 Idempotency-Key: synthetic-create-investment-001
@@ -397,16 +420,17 @@ Idempotency-Key: synthetic-create-investment-001
 }
 ```
 
-The same shape applies whether the UUID is absent or belongs to another household.
+The same shape applies whether the UUID is absent or belongs to another workspace.
 
 ## 22. Security and privacy requirements
 
 - Authentication/authorisation occurs before protected parsing/query/provider work where possible.
-- Every referenced ID, filter, cursor, include, aggregate, job, file, report, audit query, and AI dataset remains household scoped.
+- Every referenced ID, filter, cursor, include, aggregate, job, file, report, audit query, and AI dataset remains workspace scoped.
+- Contributor response schemas and queries omit restricted totals, reports, and indirect aggregates; official consumers select only Approved records.
 - Logs/audit/errors exclude credentials, headers, secrets, full payment data, report bytes, sensitive attachments, and unmasked AI payloads.
 - Sensitive request/response bodies are not recorded by default observability middleware.
 - CORS, CSRF, cookies, security headers, token storage, cryptography, exact limits, upload scanning, and retention are finalized by Issue #11 without weakening this contract.
-- OpenAPI/docs exposure in production is an explicit security/deployment decision; documentation never includes real credentials or household examples.
+- OpenAPI/docs exposure in production is an explicit security/deployment decision; documentation never includes real credentials or workspace examples.
 
 ## 23. Validation matrix
 
@@ -414,7 +438,7 @@ The same shape applies whether the UUID is absent or belongs to another househol
 | --- | --- |
 | Resource consistency | Naming/method/subresource review across every module |
 | Authentication | Missing/invalid/expired/reused/revoked/deactivated lifecycle tests |
-| Authorisation | Two-household URL/body/filter/cursor/include/file/job/report/AI identifier substitution |
+| Authorisation | Two-workspace URL/body/filter/cursor/include/file/job/report/AI identifier substitution plus role/capability denial |
 | Errors | Every code/status/envelope validated; no stack/SQL/existence/sensitive leak |
 | Decimals | String, range, scale, currency, rate, ratio, quantity, zero-denominator cases |
 | Pagination | Stable order, no duplicate/skip under updates, invalid/tampered/incompatible cursor |
@@ -422,11 +446,11 @@ The same shape applies whether the UUID is absent or belongs to another househol
 | Concurrency | Missing/stale/matching ETag and conflicting lifecycle transitions |
 | Rate limit | Threshold, Retry-After, recovery, distributed signal, no account enumeration |
 | Async/provider | Queued/success/failure/cancel/timeout/retry; core records unchanged |
-| Files | Type/size/signature/name/traversal/quarantine/expiry/cross-household/download tests |
+| Files | Type/size/signature/name/traversal/quarantine/expiry/cross-workspace/download tests |
 | Compatibility | Contract diff detects breaking field/code/auth/permission changes |
 
 ## 24. Deferred decisions and Issue #9 acceptance
 
 Deferred to later issues: exact request/response schemas per feature, access/refresh token format/lifetime/transport, CORS/CSRF/cookie details, numeric rate-limit thresholds, cursor signing mechanism, upload malware tooling, report/AI payload schemas, polling intervals, OpenAPI generation/hosting, and code layout.
 
-Issue #9 is satisfied when review confirms a consistent `/api/v1` resource/method model, stable safe error envelope/codes, explicit household authorisation, decimal formats, cursor/filter/sort rules, idempotency/concurrency/rate-limit/correlation behavior, synthetic-only examples, compatibility rules, and no routes, schemas, OpenAPI implementation, or application code.
+Issue #9 remains satisfied when review confirms a consistent `/api/v1` resource/method model, stable safe error envelope/codes, explicit workspace authorisation, decimal formats, cursor/filter/sort rules, idempotency/concurrency/rate-limit/correlation behavior, synthetic-only examples, compatibility rules, and no routes, schemas, OpenAPI implementation, or application code.

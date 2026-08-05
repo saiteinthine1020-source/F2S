@@ -33,13 +33,13 @@ Creating `Orange` creates only the category. The user must explicitly choose `Ad
 
 ## 3. Initial blank page
 
-For a new household, the Farming Investments page is initially blank. It must not automatically create:
+For a new workspace, the Farming Investments page is initially blank. It must not automatically create:
 
 - sample farming investments;
 - crop categories;
 - example projects;
 - investment or revenue totals;
-- fake household or farming data;
+- fake workspace or farming data;
 - charts with fabricated or zero-filled series; or
 - forecasts or recommendations.
 
@@ -74,15 +74,15 @@ The initial form includes:
 | Field | Behaviour |
 | --- | --- |
 | Crop category | Select an existing active category or enter the explicit create-category flow. |
-| Season | Required household-appropriate label or controlled value. |
+| Season | Required workspace-appropriate label or controlled value. |
 | Year | Required and validated. |
 | Farm location | Required selection or permitted create-location flow. |
 | Planned field size | Optional or required according to the later detailed requirements; must be positive when entered. |
-| Field-size unit | Required when field size is entered and selected from household-configured units. |
+| Field-size unit | Required when field size is entered and selected from workspace-configured units. |
 | Planting date | Optional during planning; validated against related dates when entered. |
 | Expected harvest date | Optional; cannot contradict the planting date. |
 | Planned budget | User-entered, non-negative, decimal-safe monetary value. |
-| Currency | Defaults from the household but remains explicit and configurable. |
+| Currency | Defaults from the workspace but remains explicit and configurable. |
 | Initial status | `Planned` or `Active`; no implicit completed state. |
 | Notes | Optional, length-limited, and safely handled. |
 
@@ -255,10 +255,10 @@ Unavailable actions must be omitted or disabled with an understandable reason. L
 
 - Required and cross-field validation is performed at both appropriate frontend boundaries and the backend.
 - Money and quantity values cannot be negative unless a separately documented correction mechanism applies.
-- Units must be selected from compatible household-configured units.
+- Units must be selected from compatible workspace-configured units.
 - Backend errors use stable codes and a correlation ID.
 - Failed creation preserves the user's input and never produces a partial, apparently successful project.
-- Authorisation and household ownership are checked for the project and every related record.
+- Authorisation and workspace ownership are checked for the project and every related record.
 - Retry or offline synchronisation must not create duplicate investments or overwrite newer financial data silently.
 
 ## 12. Accessibility and internationalisation
@@ -273,18 +273,18 @@ Unavailable actions must be omitted or disabled with an understandable reason. L
 
 Creation, update, status transition, cancellation, archive, restore, expense link, allocation, harvest, sale, and report actions are audited with safe metadata. Audit logs do not copy unnecessary raw financial values.
 
-Backend authorisation enforces household isolation. Attachments and generated reports require authenticated, authorised access and safe file handling.
+Backend authorisation enforces workspace isolation. Attachments and generated reports require authenticated, authorised access and safe file handling.
 
 ## 14. Initial acceptance criteria
 
 Before implementation of this module is considered complete, automated tests must verify:
 
-- a new authorised household receives a true blank state;
+- a new authorised workspace receives a true blank state;
 - no investment is created by creating or selecting a crop category;
 - the Add action is discoverable and accessible on mobile and desktop;
 - initial fields and calculation states match this design;
 - no chart or recommendation is rendered without sufficient verified data;
-- household isolation applies to list, detail, create, update, archive, and cancel operations;
+- workspace isolation applies to list, detail, create, update, archive, and cancel operations;
 - cancellation and archive preserve linked history; and
 - duplicate or failed submissions do not silently create inconsistent financial records.
 

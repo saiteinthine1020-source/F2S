@@ -23,9 +23,9 @@ This document does not create React components, CSS, design tokens, locale files
 
 ## 3. Users and operating context
 
-F2S supports Household Owners, Family Members, and Viewers using phones in household and field settings. Expected conditions include narrow screens, touch input, sunlight, intermittent connectivity, limited bandwidth, text magnification, shared-device risk, and differing financial or technical familiarity.
+F2S supports Admins, Contributors, and Advisors using phones in household, farm, and small-business settings. Expected conditions include narrow screens, touch input, sunlight, intermittent connectivity, limited bandwidth, text magnification, shared-device risk, and differing financial or technical familiarity.
 
-The reference-device matrix remains `TBD-VALIDATE` until representative household devices are recorded. Until then, every critical flow must satisfy the documented 320 CSS-pixel reflow, constrained-network, keyboard, screen-reader, zoom, and translation-expansion tests.
+The reference-device matrix remains `TBD-VALIDATE` until representative member devices are recorded. Until then, every critical flow must satisfy the documented 320 CSS-pixel reflow, constrained-network, keyboard, screen-reader, zoom, and translation-expansion tests.
 
 The interface must not assume:
 
@@ -34,23 +34,33 @@ The interface must not assume:
 - high literacy in financial terminology;
 - familiarity with icons;
 - perfect colour perception or vision;
-- that a household has existing records; or
+- that a workspace has existing records; or
 - that a visible action is authorised merely because it appeared previously.
 
 ## 4. Information architecture and navigation
 
 ### 4.1 Primary destinations
 
-The mobile shell exposes at most five persistent destinations. The baseline uses four so translated labels have room:
+The mobile shell exposes at most five persistent destinations for the current role. The
+role-specific sets below are canonical; the union of possible destinations is:
 
 | Destination | Purpose |
 | --- | --- |
-| Home | Current household, safe summary/launcher, attention items, and connection state |
-| Finance | Income, expenses, transfers, categories, and financial-event history |
-| Farming | Farming investments, costs, harvests, sales, and crop performance |
-| More | Planning, remittances, debts, receivables, reports, AI advice, household management, settings, and help according to phase and permission |
+| Home | Current workspace, role-safe summary/launcher, attention items, and connection state |
+| Transactions | Permitted income, expenses, transfers, farming activity, and history |
+| Add | Permitted Admin creation or Contributor submission entry |
+| Submissions / Activity | Contributor-owned Pending history and status without restricted totals |
+| Status | Contributor submission outcomes and required corrections |
+| Reports | Admin/Advisor permitted Approved datasets and generated outputs |
+| More | Planning, remittances, debts, receivables, AI advice, workspace management, settings, and help according to phase and capability |
 
-Before a later-phase destination exists, it is absent rather than represented by a dead control. Navigation labels use translation keys and pair icons with visible text. Icon-only primary navigation is prohibited.
+Before a later-phase destination exists, it is absent rather than represented by a dead control. Navigation labels use translation keys and pair icons with visible text. Icon-only primary navigation is prohibited. The Basic dashboard is the only MVP dashboard level.
+
+Role-specific mobile navigation follows the workspace identity contract:
+
+- Admin: Home, Transactions, Add, Reports, and More;
+- Contributor: submissions/activity, Add, status, and More, with no totals or Reports; and
+- Advisor: Home, Transactions, Reports, review/flag, and More, with no Add.
 
 ### 4.2 Mobile navigation
 
@@ -60,7 +70,7 @@ Before a later-phase destination exists, it is absent rather than represented by
 - Scrolling does not hide the only route back or the only save action.
 - `More` opens a titled, grouped destination list; it is not an unlabeled icon grid.
 - Back behavior returns to the previous meaningful location and does not discard a draft without warning.
-- Deep links restore household context only after current authentication and authorisation checks.
+- Deep links restore workspace context only after current authentication and authorisation checks.
 
 ### 4.3 Larger layouts
 
@@ -70,7 +80,7 @@ At wider viewports, the same destination hierarchy may use a navigation rail or 
 
 Each page provides, in reading order:
 
-1. current household context when relevant;
+1. current workspace context when relevant;
 2. one clear page title;
 3. concise status or guidance;
 4. the primary action when authorised;
@@ -80,12 +90,13 @@ Each page provides, in reading order:
 
 Breadcrumbs are optional on mobile and must not be the only back mechanism. On desktop they may supplement, not replace, clear page titles and navigation.
 
-### 4.5 Household and permission changes
+### 4.5 Workspace and capability changes
 
-- Household selection is an explicit named control, never inferred from colour or avatar alone.
-- Switching household clears household-specific filters, selections, cached protected views, and unsaved context only after an appropriate warning.
-- A stale bookmark or lost permission receives a safe state with a permitted next action; it never reveals foreign-household names or records.
+- Workspace selection is an explicit named control, never inferred from colour or avatar alone.
+- Switching workspace clears workspace-specific filters, selections, cached protected views, and unsaved context only after an appropriate warning.
+- A stale bookmark or lost capability receives a safe state with a permitted next action; it never reveals foreign-workspace names or records.
 - Hiding a control improves clarity but is not security. The backend reauthorises every request.
+- Contributor clients never receive restricted totals to hide, mask, or replace with zero.
 
 ## 5. Responsive layout system
 
@@ -176,7 +187,7 @@ Keys are not assembled from fragments. Complete sentences use variables and plur
 
 ## 7. Content and visual communication
 
-- Use short, direct sentences and household language before specialist financial terminology.
+- Use short, direct sentences and everyday language before specialist financial terminology.
 - A technical term that cannot be avoided receives concise contextual help.
 - Actions use specific verbs such as Add, Save draft, Record payment, Cancel investment, or Download report.
 - Destructive/corrective actions state the object and consequence; generic `OK` is avoided.
@@ -197,7 +208,7 @@ F2S targets WCAG 2.2 Level AA for all supported critical flows.
 - A skip mechanism moves keyboard focus to the main content.
 - Native semantic controls are preferred; custom controls must reproduce name, role, value, state, focus, and keyboard behavior.
 - Lists, tables, field groups, definitions, and status messages use semantics matching their meaning.
-- Page title and main heading identify the current task and household context safely.
+- Page title and main heading identify the current task and workspace context safely.
 
 ### 8.2 Keyboard and focus
 
@@ -242,7 +253,7 @@ F2S targets WCAG 2.2 Level AA for all supported critical flows.
 - Related controls use a labelled group and meaningful order.
 - Appropriate input purpose and virtual keyboard hints may improve entry but never replace validation.
 - Money, rate, quantity, unit, currency, and date meaning remain explicit.
-- Defaults come only from verified household settings or clear user choices; no fabricated financial values are prefilled.
+- Defaults come only from verified workspace settings or clear user choices; no fabricated financial values are prefilled.
 
 ### 9.2 Validation
 
@@ -286,13 +297,13 @@ Every data-bearing page defines applicable states before implementation:
 
 A true empty state may include a non-data illustration, title, explanation, and authorised action. It must not include:
 
-- sample transactions, investments, household members, debts, or receivables presented as real;
+- sample transactions, investments, workspace members, debts, or receivables presented as real;
 - zero KPI cards that imply calculations occurred;
 - fabricated charts, trends, profit, yield, forecasts, alerts, or recommendations;
 - filters that have no records to filter; or
 - success language before a record exists.
 
-Demo or educational data, if introduced later, belongs in an explicitly isolated mode and is never mixed with household records.
+Demo or educational data, if introduced later, belongs in an explicitly isolated mode and is never mixed with workspace records.
 
 ### 10.2 Loading and skeletons
 
@@ -304,12 +315,12 @@ Stable backend error codes map to translated messages; raw server English, stack
 
 ## 11. Confirmation and consequential actions
 
-Confirmation is required when an action is destructive, difficult to reverse, financially consequential, changes household access, discards a draft, transmits data externally, or changes authoritative lifecycle state.
+Confirmation is required when an action is destructive, difficult to reverse, financially consequential, changes workspace access or ownership, discards a draft, transmits data externally, or changes authoritative lifecycle state.
 
 A confirmation surface provides:
 
 - a specific translated title;
-- the affected record and household context without excess sensitive data;
+- the affected record and workspace context without excess sensitive data;
 - the consequence, reversibility, and downstream effect;
 - any required reason or acknowledgement;
 - a clearly named confirm action and a safe cancel action; and
@@ -320,12 +331,12 @@ Repeated low-risk actions should not create habituating confirmation dialogs. Ty
 ## 12. Connectivity, offline, and synchronisation
 
 - Connection status is visible when it changes task capability; browser `online` state alone is not proof that the service is reachable.
-- Cached content shows freshness and household context and never appears as newly verified.
+- Cached content shows freshness and workspace context and never appears as newly verified.
 - Local drafts are labelled as saved on this device and distinguishable from server records.
 - Queued actions show count, status, last attempt, safe retry/cancel behavior, and whether closing/signing out affects them.
 - Synchronisation never silently overwrites newer financial records or creates duplicates.
 - Conflict resolution presents local intent and current authorised server state without automatic financial merging.
-- Signing out or switching household handles protected cached data and drafts according to the security design, with a clear warning before loss.
+- Signing out or switching workspace handles protected cached data and drafts according to the security design, with a clear warning before loss.
 - Operations that are not approved offline are disabled with an explanation and a route to preserve a draft where safe.
 
 Exact caching, queue, encryption, retention, and conflict mechanics are deferred to the PWA/offline and security issues.
@@ -363,7 +374,8 @@ Exact caching, queue, encryption, retention, and conflict mechanics are deferred
 - Session warnings identify remaining time accessibly and do not expose protected data on a lock screen.
 - Secrets and full sensitive values are not placed in URLs, page titles, analytics labels, notifications, or clipboard by default.
 - Reveal/copy/download controls are explicit, named, permission checked, and provide safe completion feedback.
-- Screen content does not reveal another household through autocomplete, cached filters, recent items, error detail, or background requests.
+- Screen content does not reveal another workspace through autocomplete, cached filters, recent items, error detail, or background requests.
+- Contributor screens show submission status without official totals; Advisor screens expose only permitted reads, comments, and flags.
 - External report/AI/file transmission identifies purpose and consequence before submission when consent/confirmation is required.
 - The interface cannot promise that hidden controls prevent access; backend authorisation remains mandatory.
 
@@ -396,8 +408,8 @@ Disabled controls are used only when the reason is apparent or available. If an 
 | Contrast/non-colour | Text, focus, controls, charts, status, errors, profit/loss, and grayscale review |
 | Forms | Labels, instructions, required state, summary/inline errors, preserved input, duplicate prevention |
 | Honest states | True/filtered empty, loading, unavailable, stale, offline, failure, conflict, and success fixtures |
-| Connectivity | Disconnect/reconnect, local draft, queued action, retry, idempotency, conflict, household switch/sign-out |
-| Privacy | Shared-device, session expiry, autocomplete/cache, reveal/copy/download, cross-household substitution |
+| Connectivity | Disconnect/reconnect, local draft, queued action, retry, idempotency, conflict, workspace switch/sign-out |
+| Privacy | Shared-device, session expiry, autocomplete/cache, reveal/copy/download, cross-workspace substitution, Contributor aggregate omission |
 | Performance | Constrained-network usable content and interaction checks on approved reference devices |
 
 Automated accessibility scanning is required but cannot replace keyboard, screen-reader, zoom, touch, translation, linguistic, and cognitive walkthroughs.
@@ -414,5 +426,5 @@ Issue #10 is satisfied when review confirms that:
 - WCAG 2.2 AA, keyboard, screen-reader, touch, contrast, zoom, 320-pixel reflow, and 30-percent expansion responsibilities are explicit;
 - true empty states never fabricate records, totals, charts, forecasts, or advice;
 - loading, error, offline, confirmation, conflict, permission, and data-quality states have safe behavior;
-- examples contain no real household data; and
+- examples contain no real workspace data; and
 - no React, CSS, locale file, visual implementation, or application code is created.

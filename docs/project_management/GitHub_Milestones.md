@@ -20,22 +20,23 @@ Scope:
 
 Exit condition: implementation issues have traceable requirements and decisions, the local foundation is reproducible, and CI can validate the repository.
 
-## Phase 1 - Authentication and Household
+## Phase 1 - Authentication and Workspace
 
-**Goal:** establish secure identity, household membership, roles, and isolation.
+**Goal:** establish secure identity, workspace ownership and membership, roles, sessions, recovery, and isolation.
 
 Scope:
 
 - backend authentication;
 - frontend login;
-- access and refresh tokens;
+- opaque access credentials and rotating server-side refresh sessions;
 - password and account lifecycle;
-- roles and permissions;
-- household management;
-- household isolation; and
+- Admin, Contributor, and Advisor capability policy;
+- workspace settings, types, modules, ownership, and member lifecycle;
+- one-time bootstrap, activation, recovery, and ownership transfer;
+- workspace isolation; and
 - audit foundation.
 
-Exit condition: authorised users can access only their household, and automated tests prove authentication and isolation behaviour.
+Exit condition: authorised members can access only permitted workspace capabilities, exactly one Active Admin owns each workspace, and automated tests prove authentication, lifecycle, role, restricted-total, approval, and two-workspace isolation behaviour.
 
 ## Phase 2 - Household Finance
 
@@ -112,7 +113,7 @@ Scope:
 - repayment tracking; and
 - crop-sale and household receivables.
 
-Exit condition: balances and allocations reconcile to their underlying events and remain household-isolated.
+Exit condition: balances and allocations reconcile to their underlying events and remain workspace-isolated.
 
 ## Phase 7 - Dashboard
 
@@ -146,7 +147,7 @@ Exit condition: exports are authorised, auditable, safe, consistent with verifie
 
 ## Phase 9 - AI Adviser
 
-**Goal:** explain verified household and farming analysis cautiously in Shan.
+**Goal:** explain verified workspace financial and farming analysis cautiously in Shan.
 
 Scope:
 

@@ -14,7 +14,7 @@ When releases begin, this table will identify supported versions and end-of-supp
 
 ## Report vulnerabilities privately
 
-Do not disclose a suspected vulnerability in a public issue, pull request, discussion, commit message, screenshot, log, social post or other public channel. Do not include real household data, credentials, tokens, private keys, financial records, exported files or unmasked AI payloads in any report.
+Do not disclose a suspected vulnerability in a public issue, pull request, discussion, commit message, screenshot, log, social post or other public channel. Do not include real workspace data, credentials, tokens, private keys, financial records, exported files or unmasked AI payloads in any report.
 
 ### Preferred path: GitHub private vulnerability reporting
 
@@ -60,7 +60,7 @@ The maintainer will:
 
 1. preserve the private report and assign a safe tracking identity;
 2. reproduce with synthetic data where possible;
-3. assess confidentiality, integrity, availability, household isolation and financial-correctness impact;
+3. assess confidentiality, integrity, availability, workspace isolation and financial-correctness impact;
 4. contain active exposure or compromised credentials without destroying required evidence;
 5. prepare and independently review the fix and regression tests;
 6. coordinate release, user action and disclosure timing; and
@@ -68,7 +68,7 @@ The maintainer will:
 
 ## Coordinated disclosure
 
-Please allow a reasonable remediation period before public disclosure. Do not access, modify, retain or distribute data beyond what is necessary to demonstrate the issue. Stop testing and report immediately if real household data or a usable credential is encountered.
+Please allow a reasonable remediation period before public disclosure. Do not access, modify, retain or distribute data beyond what is necessary to demonstrate the issue. Stop testing and report immediately if real workspace data or a usable credential is encountered.
 
 The maintainer will not ask a reporter to hide unresolved harm indefinitely. If disclosure timing cannot be agreed, both parties should communicate their intended timeline and minimise risk to users.
 
@@ -91,6 +91,6 @@ Ordinary bugs, feature requests, documentation corrections and non-sensitive dep
 
 ## Safe handling by contributors
 
-Never commit or attach `.env` files, production configuration, credentials, tokens, private keys, real household/financial/farming records, private reports, exported user files or usable provider payloads. If sensitive material is committed, do not merely delete it in a later commit: notify the maintainer privately so rotation, history cleanup and incident review can be considered.
+Never commit or attach `.env` files, production configuration, credentials, tokens, private keys, real workspace/financial/farming records, private reports, exported user files or usable provider payloads. If sensitive material is committed, do not merely delete it in a later commit: notify the maintainer privately so rotation, history cleanup and incident review can be considered.
 
 This policy is guidance for this repository and is not a promise of legal safe harbour, compensation or professional legal advice.

@@ -132,10 +132,10 @@ Reviewers verify:
 - the linked issue authorises the change;
 - acceptance criteria are satisfied;
 - architecture and module boundaries are preserved;
-- household isolation, secrets, personal data, exports, logs, and AI payloads are considered where relevant;
+- workspace isolation, secrets, personal data, exports, logs, and AI payloads are considered where relevant;
 - database and API compatibility are explicit;
 - tests or documentation-only validation are proportionate to risk; and
-- the change contains no generated dependencies, credentials, or real household data.
+- the change contains no generated dependencies, credentials, or real workspace data.
 
 The maintainer may merge only after required checks pass and all actionable review findings are resolved. Security-sensitive, destructive migration, authentication, authorisation, backup, and production changes require independent review when a qualified reviewer is available. A lack of reviewer availability does not justify bypassing documented validation.
 
@@ -170,7 +170,7 @@ Enable rules in stages, verify them with a test pull request, and record the fin
 
 ## 11. Security and repository hygiene
 
-- Never commit `.env` files, credentials, tokens, production configuration, real household financial data, or exported reports containing private data.
+- Never commit `.env` files, credentials, tokens, production configuration, real workspace financial data, or exported reports containing private data.
 - Use placeholders in `.env.example` and documentation.
 - Give GitHub Actions the minimum permissions required; pin or deliberately review third-party actions.
 - Treat logs, artifacts, comments, issue bodies, and screenshots as possible disclosure channels.

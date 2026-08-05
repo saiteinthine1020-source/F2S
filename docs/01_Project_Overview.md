@@ -3,14 +3,19 @@
 ## Product identity
 
 - **Name:** F2S
-- **Type:** AI-powered family finance and farm investment management platform
-- **Initial audience:** one farming family
-- **Initial interface language:** Shan
+- **Type:** Mobile-first finance and investment management platform
+- **Initial audience:** households, farms, microbusinesses, and combined family operations
+- **Initial interface languages:** English, Shan, Myanmar, and Japanese
 - **Engineering and documentation language:** English
+
+F2S helps households, farms, and small businesses understand and manage their money
+without requiring spreadsheet or accounting expertise.
 
 ## Problem
 
-A farming family may receive unstable farm income while managing changing crop prices, rising fertiliser and labour costs, transport disruption, household and education expenses, debt, receivables, and remittances sent from Japan. Financial events are connected, but fragmented records make it difficult to answer basic questions:
+Households, farms, and small businesses may manage unstable income, changing prices,
+operating costs, family expenses, debt, receivables, remittances, and several connected
+activities. Fragmented records make it difficult to answer basic questions:
 
 - How much money came in and where was it spent?
 - What was invested in each crop project?
@@ -20,37 +25,41 @@ A farming family may receive unstable farm income while managing changing crop p
 - What debt remains and what cash is available for the next season?
 - Which observations are facts, which are estimates, and what data is missing?
 
-F2S will bring these records into a household-isolated system and produce transparent analysis. It will support decisions; it will not make decisions for the family.
+F2S brings these records into workspace-isolated modules and produces transparent
+analysis. It supports decisions; it does not make financial decisions for the user.
 
 ## Product outcomes
 
-F2S should enable the family to:
+F2S should enable a workspace to:
 
-1. maintain an understandable record of household and farming cash flows;
+1. maintain understandable household, farming, and business cash-flow records;
 2. track each crop, season, year, location, and planting cycle as a separate farming investment;
 3. associate expenses, shared-cost allocations, harvests, sales, and receivables with the correct project;
 4. calculate crop profitability and capital recovery using one deterministic backend service;
 5. compare completed crop cycles without losing historical context;
 6. create next-season scenarios with explicit assumptions and uncertainty;
 7. download secure reports with the same verified figures shown in the application; and
-8. receive cautious Shan-language explanations after sensitive data is masked.
+8. receive cautious localized explanations after sensitive data is masked.
 
 ## Users and roles
 
-The initial authorisation model supports:
+The Phase 1 workspace membership model supports exactly these roles:
 
 | Role | Intended capability |
 | --- | --- |
-| Owner | Manage the household, users, roles, settings, all records, reports, and permitted AI analysis. |
-| Administrator | Manage most household records and members, generate reports, and view audit information according to policy. |
-| Family Member | Create permitted financial and farming records and view authorised household information. |
-| Viewer | View permitted records, dashboards, and reports without modifying financial records. |
+| Admin | Sole MVP Workspace Owner; manages workspace settings, members, approvals, official totals, reports, and permitted analysis. |
+| Contributor | Creates Pending submissions but cannot receive restricted totals, complete debt/profit data, reports, users, roles, or settings. |
+| Advisor | Reads permitted official totals and reports and may comment or flag; cannot create, edit, delete, or approve records. |
 
-The model must be capable of later supporting multiple households, farming groups, cooperatives, or organisations. Backend authorisation must enforce household isolation; frontend filtering is not a security boundary.
+Ownership is an invariant attached to exactly one active Admin membership, not a separate
+general-purpose role. One account may hold different roles in different workspaces. Backend
+authorization enforces workspace isolation and capability rules; frontend filtering is not
+a security boundary. The detailed contract is [Workspace and Identity
+Foundation](12_Workspace_Identity_Design.md).
 
 ## Core capability areas
 
-- Authentication, authorisation, households, users, and audit logging
+- Authentication, authorization, workspaces, memberships, ownership, and audit logging
 - Household income and expenses
 - Crop catalogue and farming investments
 - Direct farm costs and auditable shared-cost allocation
@@ -79,7 +88,10 @@ Forecasts and recommendations include the data period, calculations, assumptions
 
 ### Security and privacy
 
-Household and financial data require least-privilege access, secure authentication, safe exports, structured audit logging, protected backups, and sensitive-data masking before Gemini processing. Secrets remain backend-only and outside version control.
+Workspace and financial data require least-privilege access, secure authentication, safe
+exports, structured audit logging, protected backups, and sensitive-data masking before
+Gemini processing. Contributors never receive restricted totals. Secrets remain backend-
+only and outside version control.
 
 ### Mobile-first access
 
@@ -107,4 +119,8 @@ Phase 0 creates the documentation and repository foundation only. Application fu
 
 ## Success measures
 
-F2S is successful when the family can enter its own data, understand the status and profitability of distinct farming investments, see honest warnings for missing or unreliable data, obtain consistent downloadable reports, and use the Shan interface on mobile under unstable connectivity. Security, backups, monitoring, auditable decisions, and verified AI explanations are part of the definition of done, not optional additions.
+F2S is successful when households, farms, and small businesses can enter their own data,
+understand their permitted financial position, see honest warnings for missing or unreliable
+data, obtain consistent reports, and use a localized mobile interface under unstable
+connectivity. Security, backups, monitoring, auditable approvals, and verified AI
+explanations are part of the definition of done, not optional additions.

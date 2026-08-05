@@ -20,7 +20,7 @@ This document creates no Dockerfile, Compose file, Nginx configuration, cloud re
 8. Persistent data is independent from container lifecycle. Recreating a container must not erase database or protected files.
 9. Host/server snapshots do not replace application-consistent, encrypted, off-host backups and verified restore drills.
 10. Deployment failure cannot silently corrupt financial history or be reported as healthy.
-11. Logs, metrics, health responses, support output and CI artifacts contain no secrets or household payloads.
+11. Logs, metrics, health responses, support output and CI artifacts contain no secrets or workspace payloads.
 12. The initial single-server topology is a cost-conscious baseline, not a high-availability claim.
 
 ## 3. External documentation baseline
@@ -50,7 +50,7 @@ These links inform validation but do not override F2S requirements, accepted ADR
 | CI | Deterministic synthetic fixtures | Automated build, test, scan and artifact evidence | Denied except approved dependency registries/services | Ephemeral; safe evidence retained by CI policy |
 | Production-like | Synthetic reference dataset | Capacity, migration, security and deployment rehearsal | Restricted test operators and approved monitors | Recreated from code/fixtures; no production copy |
 | Isolated restore | Protected restored data | Timed recovery and reconciliation | Restricted operators; email/providers/AI disabled | Destroyed safely after evidence and retention requirements |
-| Production | Real household data | Live F2S service | Public HTTPS; restricted operator path | Protected database/files plus off-host backups |
+| Production | Real workspace data | Live F2S service | Public HTTPS; restricted operator path | Protected database/files plus off-host backups |
 
 Production uses separate Hetzner project/resources, domain, credentials, provider projects, storage, monitoring, encryption material and secret values. Development or CI credentials cannot access production. Production data is not copied into lower environments; restore drills containing production data remain controlled production operations.
 
@@ -172,7 +172,7 @@ Nginx is the only public application entry point. Production behavior includes:
 - safe CSP, `nosniff`, referrer, permissions, anti-framing and cache headers from the Security Design;
 - no caching of authenticated JSON, reports, downloads or user-specific HTML unless a reviewed private-cache contract exists;
 - safe generic error pages and no Nginx/framework version banner; and
-- access/error logs using allowlisted fields without query secrets, cookies, authorisation, bodies or household data.
+- access/error logs using allowlisted fields without query secrets, cookies, authorisation, bodies or workspace data.
 
 Nginx proxies only registered API/static/health routes. Internal health details, metrics, database administration and application documentation are not public. Upstream connection, send and read timeouts are bounded and aligned with API/report asynchronous contracts; the edge does not retry unsafe writes.
 
@@ -194,7 +194,7 @@ The roles from ADR-002 remain distinct:
 - monitoring role: safe health/statistics only; and
 - restore/operator role: controlled break-glass use, never ordinary runtime configuration.
 
-The runtime role cannot create databases, roles or extensions, own unrestricted schema objects, run migrations, or bypass household ownership policy.
+The runtime role cannot create databases, roles or extensions, own unrestricted schema objects, run migrations, or bypass workspace ownership policy.
 
 ### 10.3 Version and capacity
 
@@ -223,7 +223,7 @@ The implementation records whether each production mount uses server disk, a Het
 
 ### 12.1 Secret inventory
 
-Secret classes include database passwords/certificates, session/signing/encryption keys, CSRF/activation digest keys, file/backup encryption and storage credentials, email/Gemini keys, monitoring tokens, registry/deployment credentials and TLS private keys.
+Secret classes include database passwords/certificates, opaque-session and credential-digest keys, CSRF/activation/recovery keys, file/backup encryption and storage credentials, email/Gemini keys, monitoring tokens, registry/deployment credentials and TLS private keys.
 
 Each secret records owner, purpose, consumer, environment, source, creation time, rotation/revocation method, overlap behavior, incident action and last test. A service receives only its secrets. Backup bytes and their decryption key do not depend solely on the protected production host.
 
@@ -242,7 +242,7 @@ Configuration is typed, allowlisted and version-compatible. Production startup f
 - unsupported schema/image/config version combination; or
 - disabled audit, masking, health or required security control.
 
-Non-secret environment templates contain names and safe examples only. No real hostname tied to private administration, account identifier, credential, household data or production value is committed.
+Non-secret environment templates contain names and safe examples only. No real hostname tied to private administration, account identifier, credential, workspace data or production value is committed.
 
 ## 13. Health and readiness
 
@@ -250,11 +250,11 @@ Non-secret environment templates contain names and safe examples only. No real h
 | --- | --- | --- | --- |
 | Process liveness | Container runtime only | Event loop/process can answer | Query every dependency, disclose details, or restart on provider outage |
 | Application readiness | Nginx/internal orchestrator | Config valid, required schema compatible, database shallow check succeeds, app can safely serve core requests | Treat optional email/Gemini/report renderer as core failure |
-| PostgreSQL health | Internal services/runtime | Server accepts an authenticated minimal health operation | Use superuser or expose household/table data |
+| PostgreSQL health | Internal services/runtime | Server accepts an authenticated minimal health operation | Use superuser or expose workspace/table data |
 | External availability | Approved monitor | Canonical HTTPS edge and minimal application readiness path work | Return build secrets, database state, versions or internal topology |
 | Deep diagnostic | Restricted operator | Named dependency/capacity/backup investigation | Be public or used as a high-frequency liveness probe |
 
-Health responses are small, non-cacheable and contain only stable status categories plus correlation where needed. They expose no secret, connection string, stack trace, provider response, household count or detailed version.
+Health responses are small, non-cacheable and contain only stable status categories plus correlation where needed. They expose no secret, connection string, stack trace, provider response, workspace count or detailed version.
 
 Loss of application or database health must produce an operator-visible alert within 5 minutes. Restart is bounded; repeated failure becomes an alert and degraded/unready state instead of an endless hidden loop.
 
@@ -303,7 +303,7 @@ The first implementation slice contains one `postgres` service only. Frontend, A
 | Container network | Compose bridge network `data` | Private service-to-service boundary; no edge network exists in this slice |
 | Persistent storage | Named volume `postgres_data` mounted at `/var/lib/postgresql` | PostgreSQL 18 creates versioned `PGDATA` below this parent; `down --volumes` is an explicit destructive reset |
 | Credentials | `F2S_POSTGRES_PASSWORD` is required from ignored `.env`; database, user and host port have local defaults | `.env.example` contains placeholders only; no real or production credential is committed |
-| Health | `pg_isready` checks the configured user and database | No secret or household data appears in the command or output |
+| Health | `pg_isready` checks the configured user and database | No secret or workspace data appears in the command or output |
 
 PostgreSQL 18.4 was the current supported minor release when this implementation decision was recorded on 2026-08-05. A future version change requires a reviewed dependency update plus clean-start, persistence, migration/upgrade and restore evidence; changing a tag is not an upgrade plan. Docker Desktop/Engine must be a maintained release. Docker Compose v5.1 or a compatible newer release must implement the current Compose Specification used by this file.
 
@@ -327,7 +327,7 @@ The liveness check proves only that the ASGI process can respond. It does not qu
 
 CI builds frontend and backend runtime images once from a clean commit with locked dependencies. Release evidence records source commit, image digest, build time, base/dependency versions, tests, secret scan, dependency/container scan, SBOM and provenance. Critical/High findings block production unless the Security Design's time-bound risk-acceptance rule is satisfied.
 
-The runtime host pulls only approved immutable image digests. Deployment identity has permission to retrieve/deploy approved artifacts but not read household records or broad repository/organisation resources. Pull-request workflows do not receive production secrets.
+The runtime host pulls only approved immutable image digests. Deployment identity has permission to retrieve/deploy approved artifacts but not read workspace records or broad repository/organisation resources. Pull-request workflows do not receive production secrets.
 
 ## 17. Deployment and migration sequence
 
@@ -375,7 +375,7 @@ Operator access uses named accounts, strong key-based SSH, restricted source add
 
 Docker group/root access is treated as host-root authority. Application operators do not receive it by default. Administrative commands, support bundles and terminal history must not expose secret values.
 
-Server and critical provider resources use deletion/rebuild protection where supported. Resource labels identify environment/owner without household or secret data.
+Server and critical provider resources use deletion/rebuild protection where supported. Resource labels identify environment/owner without workspace or secret data.
 
 ## 20. Failure-mode review
 

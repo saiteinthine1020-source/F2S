@@ -1,6 +1,6 @@
 # F2S Backend
 
-This directory contains the smallest executable FastAPI skeleton approved by Issue #20. It proves configuration, application-factory, liveness, architecture-test, container and CI behavior. It contains no user, login, household, finance, farming, persistence, schema, migration or background-job implementation.
+This directory contains the smallest executable FastAPI skeleton approved by Issue #20. It proves configuration, application-factory, liveness, architecture-test, container and CI behavior. It contains no user, login, workspace, finance, farming, persistence, schema, migration or background-job implementation.
 
 ## Boundaries
 
@@ -47,7 +47,7 @@ The only implemented behavior is the operational liveness endpoint:
 Invoke-RestMethod http://127.0.0.1:8000/health/live
 ```
 
-It returns only `{"status":"ok"}`. It does not claim database or external-provider readiness and exposes no configuration, version, hostname, dependency or household data.
+It returns only `{"status":"ok"}`. It does not claim database or external-provider readiness and exposes no configuration, version, hostname, dependency or workspace data.
 
 ## Validate
 

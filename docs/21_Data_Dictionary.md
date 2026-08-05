@@ -4,22 +4,22 @@
 
 This dictionary defines canonical F2S business terms, entities, fields, classifications, lifecycle states, numeric/unit semantics, and prohibited ambiguous language. It is shared by requirements, database/API design, code, tests, reports, translations, audit events, and AI preparation.
 
-The [Database Design](08_Database_Design.md) defines relationships/constraints; [ADR-008](adr/ADR-008-safe-financial-numeric-storage.md) defines decimal behavior. New meanings must update this dictionary before implementation.
+The [Database Design](08_Database_Design.md) defines relationships/constraints; [ADR-008](adr/ADR-008-safe-financial-numeric-storage.md) defines decimal behavior; [ADR-012](adr/ADR-012-workspace-level-data-isolation.md) through [ADR-016](adr/ADR-016-workspace-types-and-modules.md) define the workspace and identity model. New meanings must update this dictionary before implementation.
 
 - **Canonical term:** approved English engineering meaning; display labels are translated separately.
 - **Code:** stable uppercase machine value; display-text changes never alter stored meaning.
 - **Source fact:** authorised input/evidence corrected only through approved workflow.
 - **Derived value:** versioned backend output, never manually edited.
-- **Protected:** requires authenticated purpose and household or controlled identity/operations boundary.
+- **Protected:** requires authenticated purpose and workspace or controlled identity/operations boundary.
 - Null means absent/not applicable/unknown per field contract; never silently zero, false, or empty.
 
 ## 2. Data classifications
 
 | Code | Meaning / examples | Default handling |
 | --- | --- | --- |
-| `PUBLIC` | Published non-household docs/reference | Approved publication only |
+| `PUBLIC` | Published non-workspace docs/reference | Approved publication only |
 | `INTERNAL` | Safe codes/operational metadata | Maintainer/application need-to-know |
-| `CONFIDENTIAL` | Household, location, transaction, buyer/lender, report metadata | Household-authorised; protected backup; no broad logs |
+| `CONFIDENTIAL` | Workspace, location, transaction, buyer/lender, report metadata | Workspace-authorised; protected backup; no broad logs |
 | `RESTRICTED` | Login/contact, token digest, payment/bank, attachment, unmasked AI source | Strongest least privilege; purpose limitation; minimal retention/redaction |
 
 Password, raw token, secret, API key, authorisation header, and production credential are never valid business-data fields.
@@ -29,63 +29,68 @@ Password, raw token, secret, API key, authorisation header, and production crede
 | Field | Meaning | Format / rule |
 | --- | --- | --- |
 | `id` | Opaque immutable entity ID | UUID v4; no embedded business meaning |
-| `household_id` | Direct protected-row owner | Required/immutable on every household-protected table |
+| `workspace_id` | Direct protected-row owner | Required/immutable on every workspace-protected table |
 | `created_at` / `updated_at` | Server creation/last mutation instant | UTC `TIMESTAMPTZ`; updated >= created |
-| `created_by_membership_id` | Household-context creating actor | Membership retained after deactivation |
+| `created_by_membership_id` | Workspace-context creating actor | Membership retained after suspension or revocation |
 | `updated_by_membership_id` | Last approved editor | Nullable only for controlled system action with attribution |
 | `version` | Optimistic concurrency number | Positive BIGINT; increment on mutation |
 | `status` | Entity-specific bounded lifecycle | Stable uppercase code, not free text |
 | `occurred_on` | Business calendar date of event | `DATE`; distinct from creation time |
 | `archived_at` / `archive_reason` | Archive instant/explanation | Archive retains history |
 | `correlation_id` | Safe request/work trace ID | Contains no sensitive data |
-| `idempotency_key` | Retry identity | Household+operation scoped; not credential |
+| `idempotency_key` | Retry identity | Workspace+operation scoped; not credential |
 | `currency_code` | Currency of money | Approved uppercase 3-letter code |
 | `unit_code` | Unit of quantity | Stable code with compatible dimension |
 | `notes` | Optional user context | Bounded Confidential text; not logs/AI by default |
 | `reason_code` | Stable unavailable/failed/denied reason | Localisable message mapping; no sensitive detail |
 
-## 4. Identity and household terms
+## 4. Identity and workspace terms
 
 | Term | Definition / owner | Key rule |
 | --- | --- | --- |
-| User account | Global authentication identity / Identity | May have multiple/no memberships; Restricted |
-| Session | Revocable authenticated continuity / Identity | Token digest only; active household is request context |
-| Household | Tenant, family-decision, authorisation, isolation boundary / Access | Protected through active membership |
-| Membership | Account-household role/lifecycle / Access | Historical actor reference; direct household owner |
-| Owner | Unique highest household role | Exactly one active under transaction policy |
-| Administrator | Delegated manager | Cannot transfer ownership/exceed policy |
-| Family Member | Granted contributor | No implied administration |
-| Viewer | Granted read-only participant | Backend denies mutations |
-| Invitation | Expiring household/role invitation | Token digest only; inviter authority checked |
-| Active household | Explicit selected request context | Never inferred solely from record ID |
-| Household settings | Currency/timezone/language/year/unit/profile preferences | Versioned/audited; no historical rewrite |
-| Farm location | Household field/farm reference | Confidential, archivable, household-local name |
+| User account | Global normalized-email authentication identity / Identity | May have multiple or no memberships; Restricted |
+| Session | Revocable server-side authenticated continuity / Identity | Opaque access/refresh credential digests only; workspace selected per request |
+| Workspace | Stable tenant, ownership, membership, configuration, authorisation, and isolation boundary / Workspace Access | Direct `workspace_id` protects business rows; type is not the security boundary |
+| Workspace type | Onboarding/default-module category | `HOUSEHOLD`, `FARM`, `MICROBUSINESS`, `SMALL_BUSINESS`, `COMBINED`, or `CUSTOM` |
+| Enabled module | Explicit validated workspace capability configuration | Authoritative after creation; type only supplies defaults |
+| Membership | Account-workspace role and lifecycle / Workspace Access | Historical actor reference; one role per workspace membership |
+| Admin | Sole MVP workspace manager role | Owner membership only; settings, members, approvals, and transfer flow |
+| Contributor | Submission role | Creates Pending records; receives no restricted totals or reports |
+| Advisor | Read-only review role | Permitted Approved reads plus comment/flag; no mutation or approval |
+| Workspace Owner | Explicit workspace reference to one membership | Same workspace, Active, role Admin; ownership is not a fourth role |
+| Activation challenge | Expiring single-use account/membership activation evidence | High entropy, digest only; restart invalidates prior challenge |
+| Recovery challenge | Concealed expiring account-recovery evidence | Digest only, single-use, rate-limited; success revokes required sessions |
+| Ownership transfer | Dedicated current-owner/target confirmation workflow | Atomic role and owner-reference move; generic membership PATCH prohibited |
+| Selected workspace | Explicit request context | Never inferred solely from record ID; Active membership required |
+| Workspace settings | Name/type/modules/currency/timezone/language/profile preferences | Versioned/audited; stable ID; no historical rewrite |
+| Household | Workspace type and finance domain | Never used as the universal tenant or membership boundary |
+| Farm location | Workspace field/farm reference | Confidential, archivable, workspace-local name |
 
-States: user account `INVITED`, `ACTIVE`, `DEACTIVATED`, `LOCKED`; membership `INVITED`, `ACTIVE`, `DEACTIVATED`; household `ACTIVE`, `SUSPENDED`, `ARCHIVED`.
+States: account `PENDING_ACTIVATION`, `ACTIVE`, `SUSPENDED`, `LOCKED`, `CLOSED`; membership `PENDING`, `ACTIVE`, `SUSPENDED`, `REVOKED`; workspace `ACTIVE`, `SUSPENDED`, `ARCHIVED`.
 
 ## 5. Finance terms
 
 | Term | Definition | Key rule |
 | --- | --- | --- |
-| Financial event | One canonical posted cash inflow/outflow | Positive magnitude+direction+currency; immutable after posting |
+| Financial event | One canonical cash inflow/outflow submission/posting | Positive magnitude+direction+currency; only Approved affects official datasets |
 | Income / Expense | Ordinary inflow/outflow not already represented by another workflow | Counts once |
 | Cash direction | `INFLOW` or `OUTFLOW` | Negative ordinary amount does not encode direction |
 | Event kind | Stable source/reason classification | Manual income/expense, farm cost, debt payment, etc. |
-| Finance category | Household finance classification | Archivable; historical references remain |
-| Reversal | New opposite event neutralising original | Original retained; same household/currency |
+| Finance category | Workspace finance classification | Archivable; historical references remain |
+| Reversal | New opposite event neutralising original | Original retained; same workspace/currency |
 | Replacement event | Corrected posting after reversal | Explicit link; new history |
 | Canonical event link | Unique domain-source to financial-event relationship | Prevents duplicate cash counting |
 | Recognised revenue | Sale value recognised under sale policy | Not cash received |
 | Cash received | Sum of approved canonical receipt events | Each event once |
 | Outstanding amount | Original receivable less payments/adjustments | Derived; not freely editable |
 
-Financial-event states: `POSTED`, `REVERSED`. A local/client `DRAFT` is not a committed event.
+Financial-record approval states are `PENDING`, `APPROVED`, and `REJECTED`; posting/correction states remain separate. Contributor submissions begin `PENDING`. A local/client `DRAFT` is not a committed event.
 
 ## 6. Farming terms and states
 
 | Term | Definition | Key rule |
 | --- | --- | --- |
-| Crop category | Reusable household crop classification | Creating/selecting never creates investment |
+| Crop category | Reusable workspace crop classification | Creating/selecting never creates investment |
 | Farming investment | Distinct crop/season/year/location/planting-cycle project | Separate identity for repeated cycles |
 | Planned budget | User-entered expected spending | Source fact; not actual investment |
 | Actual investment | Eligible direct/shared allocated costs | Derived by Calculation |
@@ -158,14 +163,14 @@ Calculation availability: `AVAILABLE`, `PENDING`, `INCOMPLETE`, `UNRELIABLE`, `U
 
 | Term | Definition / key rule |
 | --- | --- |
-| Planning scenario | Household hypothetical workspace; never creates real project/event |
+| Planning scenario | Workspace-scoped hypothetical model; never creates real project/event |
 | Scenario version | Immutable inputs/assumptions/source refs at a point in time |
 | Conservative/Expected/Optimistic | Explicit deterministic cases; none is a guarantee |
 | Recommendation | Transparent advisory status/reasons; no action execution |
-| Verified dataset | Authorised versioned read model with household/purpose/filter/period |
+| Verified dataset | Authorised versioned Approved-record read model with workspace/purpose/filter/period |
 | Dashboard | View of verified dataset; no independent formulas/fake empty charts |
 | Report request / artifact | Generation intent / validated expiring temporary file |
-| Protected file | Household/purpose/type/size/access/expiry-controlled file |
+| Protected file | Workspace/purpose/type/size/access/expiry-controlled file |
 | AI advice request | Authorised purpose-limited request from masked verified data |
 | Masked dataset | Verified data after prohibited identifiers/details removed |
 | AI explanation | Validated advisory text; never authoritative value/action |
@@ -187,7 +192,7 @@ States: report `QUEUED/RUNNING/SUCCEEDED/FAILED/CANCELLED/EXPIRED`; file `PENDIN
 | Reverse | Append opposite financial posting |
 | Correct | Preserve original and record replacement/new state |
 | Deactivate | Deny future use/access; preserve attribution |
-| Expire | Make time-limited session/invitation/file/key/artifact unusable |
+| Expire | Make time-limited session/challenge/file/key/artifact unusable |
 | Delete | Removal under approved retention/privacy procedure, not archive |
 | Anonymise | Irreversibly remove/replace identity while preserving approved integrity |
 | Retention owner | Design/role responsible for approved retention period |
@@ -206,7 +211,7 @@ Legal periods are not guessed. Issues #11, #13, #14, and #16 own the retention m
 | Rate | Exchange/interest/ROI/loss rate with direction/period/basis |
 | Delete project | Cancel or archive farming investment |
 | User | User account, membership, or actor |
-| Current household | Active household |
+| Current household | Selected workspace; use Household only for the domain/type |
 | AI result | AI explanation or fallback |
 | Empty | No records, not applicable, incomplete, unavailable, or verified zero |
 | Total | Named total with source/period/currency/unit/filter/formula |
@@ -215,18 +220,18 @@ Legal periods are not guessed. Issues #11, #13, #14, and #16 own the retention m
 
 | Entity | Owner | Isolation |
 | --- | --- | --- |
-| `user_accounts`, `auth_sessions` | Identity | Global protected identity boundary; not ordinary household queries |
-| `households`, `household_memberships`, `household_invitations`, `household_settings`, `farm_locations` | Household Access | Direct household ownership or membership-gated household row visibility |
-| `finance_categories`, `financial_events`, `financial_event_files` | Household Finance | Direct household; correction/category/file parents same household |
-| `crop_categories`, `farming_investments` | Farming Investments | Direct household; crop/location relationships same household |
-| `farm_costs`, `farm_cost_allocations`, `harvests`, `crop_sales` | Farm Operations | Direct household; cost/project/event parents same household |
-| `remittances`, `remittance_allocations`, `debts`, `debt_payments`, `receivables`, `receivable_payments` | Funds | Direct household; all source/event/target relationships same household |
-| `planning_scenarios`, `planning_scenario_versions`, `planning_assumptions` | Planning | Direct household; parent chain same household |
-| `protected_files` | File Protection | Direct household; purpose/resource access rechecked |
-| `report_requests`, `report_artifacts` | Reporting | Direct household; request/file/dataset same household |
-| `ai_advice_requests` | AI Advice | Direct household; authorised dataset/purpose and masked outbound |
-| `audit_events` | Audit | Direct household; separately permissioned queries |
-| `idempotency_records`, `outbox_events` | Application Support | Direct household; operation/payload purpose-limited |
+| `bootstrap_state`, `user_accounts`, `auth_sessions`, `activation_challenges`, `recovery_challenges` | Identity | Controlled global identity boundary; not ordinary workspace queries |
+| `workspaces`, `workspace_memberships`, `workspace_modules`, `ownership_transfers`, `farm_locations` | Workspace Access | Workspace membership-gated visibility; ownership and transfer constraints same workspace |
+| `finance_categories`, `financial_events`, `financial_event_files` | Household Finance | Direct workspace; correction/category/file parents same workspace |
+| `crop_categories`, `farming_investments` | Farming Investments | Direct workspace; crop/location relationships same workspace |
+| `farm_costs`, `farm_cost_allocations`, `harvests`, `crop_sales` | Farm Operations | Direct workspace; cost/project/event parents same workspace |
+| `remittances`, `remittance_allocations`, `debts`, `debt_payments`, `receivables`, `receivable_payments` | Funds | Direct workspace; all source/event/target relationships same workspace |
+| `planning_scenarios`, `planning_scenario_versions`, `planning_assumptions` | Planning | Direct workspace; parent chain same workspace |
+| `protected_files` | File Protection | Direct workspace; purpose/resource access rechecked |
+| `report_requests`, `report_artifacts` | Reporting | Direct workspace; request/file/dataset same workspace |
+| `ai_advice_requests` | AI Advice | Direct workspace; authorised dataset/purpose and masked outbound |
+| `audit_events` | Audit | Direct workspace; separately capability-controlled queries |
+| `idempotency_records`, `outbox_events` | Application Support | Direct workspace; operation/payload purpose-limited |
 
 Adding a protected entity without updating this register and the Database Design is prohibited.
 

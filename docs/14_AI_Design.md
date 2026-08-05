@@ -11,8 +11,8 @@ This document creates no Gemini call, prompt text, endpoint, database model, mig
 ## 2. Non-negotiable principles
 
 1. F2S calculations and source-module facts remain authoritative; AI only explains already verified results.
-2. AI never originates, corrects, ranks, approves, or persists a financial value, forecast, recommendation, or household action.
-3. AI receives only a purpose-limited, household-authorised, quality-labelled dataset assembled by F2S.
+2. AI never originates, corrects, ranks, approves, or persists a financial value, forecast, recommendation, or workspace action.
+3. AI receives only a purpose-limited, workspace-authorised, quality-labelled dataset assembled by F2S.
 4. Data minimisation happens before masking. A field not required for the approved purpose is removed, not merely obscured.
 5. Prohibited data never enters the outbound request, including hidden prompt sections, metadata, filenames, logs, traces, or retry records.
 6. The provider, its safety filters, and its response are untrusted. F2S validates every response independently before display.
@@ -32,7 +32,7 @@ Gemini is an external processor, not a trusted F2S component. Before each enviro
 - model deprecation and compatibility dates; and
 - a disable/rollback owner and kill-switch procedure.
 
-Production household data must not use a service tier whose terms permit provider product improvement or human review of submitted content. Google currently warns that unpaid-service content may be used for improvement and reviewed by humans; therefore an unpaid Gemini service is prohibited for production F2S. If an approved arrangement cannot meet F2S privacy and retention constraints, AI advice remains disabled.
+Production workspace data must not use a service tier whose terms permit provider product improvement or human review of submitted content. Google currently warns that unpaid-service content may be used for improvement and reviewed by humans; therefore an unpaid Gemini service is prohibited for production F2S. If an approved arrangement cannot meet F2S privacy and retention constraints, AI advice remains disabled.
 
 Provider controls supplement rather than replace F2S controls. Google documents adjustable safety settings and safety feedback, but F2S still performs its own data-loss, factual, structural, language, and policy validation. Structured JSON output constrains syntax only; it does not prove that an explanation is true.
 
@@ -50,7 +50,7 @@ The terms and configuration review occurs before first integration, before produ
 
 | Owner | Owns | Must not own |
 | --- | --- | --- |
-| Source modules | Authoritative household, finance, farming, funds, and planning records | AI prompts, provider behavior, or advisory prose |
+| Source modules | Authoritative workspace-scoped finance, farming, funds, and planning records | AI prompts, provider behavior, or advisory prose |
 | Calculation and Data Quality | Exact formulas, decimal/rounding/unit policy, availability, quality and rule versions | AI prose or provider calls |
 | Query and Dashboard | Authorised, purpose-limited `VerifiedDataset` composition | Provider adaptation or source mutation |
 | AI Advice | Purpose validation, minimisation, masking, outbound schema, provider adapter, response validation, fallback and safe metadata | Source-table access, authoritative calculation, financial action, or unmasked payloads |
@@ -77,7 +77,7 @@ Initial release excludes open-ended chat, tax/legal/medical advice, guaranteed o
 
 ```mermaid
 flowchart TD
-    Actor["Authenticated household actor"] --> Authorise["Authorise household, capability, and purpose"]
+    Actor["Authenticated workspace actor"] --> Authorise["Authorise workspace, capability, and purpose"]
     Authorise --> Dataset["Build purpose-limited VerifiedDataset"]
     Dataset --> Quality["Check availability, quality, and minimum evidence"]
     Quality --> Minimise["Allowlist and minimise fields"]
@@ -100,7 +100,7 @@ flowchart TD
 The required sequence is:
 
 1. validate the current server-side session;
-2. resolve the active household and current membership;
+2. resolve the selected workspace and Active membership;
 3. authorise the named AI capability and purpose;
 4. enforce rate, concurrency, idempotency and request-size limits;
 5. obtain a versioned `VerifiedDataset` through the Query/Dashboard contract;
@@ -117,7 +117,7 @@ The required sequence is:
 The AI module consumes a purpose-specific `AdvisoryDataset`, derived from but narrower than a `VerifiedDataset`. It contains only:
 
 - schema, dataset, formula, rule, masking-policy and prompt-policy versions;
-- purpose code, requested supported locale, household timezone, period and generation time;
+- purpose code, requested supported locale, workspace timezone, period and generation time;
 - stable request-local synthetic entity labels when relationships are necessary;
 - verified fact identifiers with exact decimal strings, currencies, units and periods;
 - separately labelled forecast values with scenario/version, assumptions and uncertainty;
@@ -139,7 +139,7 @@ Exact money, quantity, rate and ratio values remain strings under ADR-008. Provi
 | Transaction reference | Receipt number, transfer reference, provider reference, bank narration | Remove or replace with request-local opaque label only when relationship is essential |
 | Authentication | Password, password hash, token, cookie, session/CSRF value, recovery/activation proof | Reject the whole outbound request and raise a security signal |
 | Secret/configuration | API key, signing/encryption key, connection string, secret environment value | Reject and raise a security signal |
-| Internal identifier | Household/user/member UUID, database key, storage key, correlation ID | Remove; provider request uses unrelated request-local labels |
+| Internal identifier | Workspace/user/member UUID, database key, storage key, correlation ID | Remove; provider request uses unrelated request-local labels |
 | Free text | Notes, descriptions, buyer/lender/sender text, filenames, attachment contents | Deny by default; never send raw |
 | Operational internals | Stack trace, SQL, host/path, logs, source code, infrastructure names | Remove |
 | Unnecessary business data | Any fact not required by the selected purpose | Remove before masking |
@@ -157,7 +157,7 @@ The purpose schema builds a new object from approved typed fields; it never copi
 When an entity relationship is necessary, F2S replaces identity with a neutral label such as `INVESTMENT_1`, `CROP_CATEGORY_1` or `PERIOD_1`. Labels are deterministic only within one request and purpose. The mapping:
 
 - uses cryptographically random request-local salt where derivation is needed;
-- cannot be linked across requests, households or purposes;
+- cannot be linked across requests, workspaces or purposes;
 - is held in memory only and never sent, logged or persisted; and
 - does not encode a source identifier, name, order that reveals identity, or reversible value.
 
@@ -178,9 +178,9 @@ Any match rejects the request before network transmission. Detection logs only c
 
 ## 10. Prompt-injection boundary
 
-Household-controlled content, imported data and provider output are untrusted data, even when stored in an authorised F2S record.
+Workspace-controlled content, imported data and provider output are untrusted data, even when stored in an authorised F2S record.
 
-- Initial schemas send no arbitrary household free text.
+- Initial schemas send no arbitrary workspace free text.
 - Server-owned instructions are fixed, versioned and outside user-editable fields; this document defines policy, not actual prompt text.
 - Structured data is placed only in the designated data field and cannot change purpose, schema, tools, audience or system policy.
 - The provider has no tools, functions, browsing, retrieval, URL access, database connection or action endpoint.
@@ -200,7 +200,7 @@ Initial operational limits are provisional until measured with the approved mode
 - at most one retry for a retryable `429` or transient `5xx`, only when duplicate generation is safe; and
 - no automatic retry for validation, safety, authentication, permission, malformed-request or content-policy failure.
 
-Existing security limits remain authoritative: 5 AI requests per actor per 10 minutes, 20 per household per hour, and at most 1 concurrent request per actor. Cost, token and provider quotas can lower these limits but cannot weaken them.
+Existing security limits remain authoritative: 5 AI requests per actor per 10 minutes, 20 per workspace per hour, and at most 1 concurrent request per actor. Cost, token and provider quotas can lower these limits but cannot weaken them.
 
 Secrets are loaded through the approved production secret mechanism. Requests use HTTPS with certificate validation. The adapter must not accept a user-selected model, base URL, system instruction, safety setting, or API key.
 
@@ -265,7 +265,7 @@ The established AI lifecycle remains:
 | `FAILED` | Request cannot safely produce either approved output or fallback |
 | `CANCELLED` | Cancellation was accepted; a provider call already in flight may only be best-effort cancelled |
 
-Future `/api/v1/households/{household_id}/ai-advice-requests` behavior follows the REST API design: authenticated household scope, capability, strict fields, idempotency, safe `202` asynchronous request resource, authorised status access, rate limiting and best-effort cancellation. Exact endpoint schemas remain deferred.
+Future `/api/v1/workspaces/{workspace_id}/ai-advice-requests` behavior follows the REST API design: authenticated workspace scope, capability, strict fields, idempotency, safe `202` asynchronous request resource, authorised status access, rate limiting and best-effort cancellation. Exact endpoint schemas remain deferred.
 
 A timeout or cancellation never changes source records. If a provider call completes after cancellation, its output is discarded and not displayed.
 
@@ -273,7 +273,7 @@ A timeout or cancellation never changes source records. If a provider call compl
 
 | Condition | Provider contacted? | Result |
 | --- | --- | --- |
-| Unauthenticated, unauthorised or wrong household | No | Safe denial; no existence or data leak |
+| Unauthenticated, unauthorised or wrong workspace | No | Safe denial; no existence or data leak |
 | Unsupported purpose/locale or invalid request | No | Safe validation failure |
 | Insufficient/unavailable dataset | No | Reviewed deterministic explanation of missing data |
 | Masking, canary or outbound-schema failure | No | Fail closed, safe security/operational signal |
@@ -288,7 +288,7 @@ Fallback content is generated from server-owned Shan translation templates and v
 
 ## 17. Persistence, logging, audit and retention
 
-`ai_advice_requests` stores safe request metadata only: household/actor references, purpose, dataset/formula/quality/masking/schema/prompt-policy versions, requested language, approved model/service identifiers, lifecycle state, input/output size and token counts, cost class, times/duration, safe result/error category and correlation identifier.
+`ai_advice_requests` stores safe request metadata only: workspace/actor references, purpose, dataset/formula/quality/masking/schema/prompt-policy versions, requested language, approved model/service identifiers, lifecycle state, input/output size and token counts, cost class, times/duration, safe result/error category and correlation identifier.
 
 F2S does not persist:
 
@@ -296,17 +296,17 @@ F2S does not persist:
 - the raw or validated provider response;
 - request-local replacement mappings;
 - prohibited matched values, provider credentials or safety-filter text; or
-- household facts duplicated solely for AI.
+- workspace facts duplicated solely for AI.
 
 Because AI result content is not retained, the initial asynchronous contract must deliver a validated result through an approved ephemeral mechanism and must not promise later content retrieval. The implementation issue must reconcile delivery/retry behavior before finalising its API; only safe status and metadata remain available afterward.
 
 Safe AI metadata has the existing provisional 90-day retention. Raw request/response payload retention is zero within F2S. Provider-side retention is separately governed by the terms gate in Section 3.
 
-Audit records actor, household, purpose, dataset/version references, model/service and policy versions, state transitions, timing, result category, fallback reason category and correlation. Logs/metrics may include the same safe categories plus latency, token counts and cost class. They never include prompt/response bodies, household values, replacement mappings, provider keys or matched sensitive strings.
+Audit records actor, workspace, purpose, dataset/version references, model/service and policy versions, state transitions, timing, result category, fallback reason category and correlation. Logs/metrics may include the same safe categories plus latency, token counts and cost class. They never include prompt/response bodies, workspace values, replacement mappings, provider keys or matched sensitive strings.
 
 ## 18. Monitoring, cost and incident controls
 
-Required aggregate signals include request/state counts, pre-provider rejection categories, masking failures, provider latency/status, safety blocks, response-validation categories, Shan fallback rate, token/cost budgets, retries, cancellation and audit failure. Dimensions are bounded and contain no household content.
+Required aggregate signals include request/state counts, pre-provider rejection categories, masking failures, provider latency/status, safety blocks, response-validation categories, Shan fallback rate, token/cost budgets, retries, cancellation and audit failure. Dimensions are bounded and contain no workspace content.
 
 Alerts cover abnormal sensitive-pattern rejection, validation/fallback spikes, quota/cost acceleration, provider authentication failure, terms/model configuration drift and kill-switch activation. A suspected outbound disclosure triggers provider access disablement, credential rotation where relevant, evidence preservation without copying sensitive payloads, and the security incident process.
 
@@ -316,7 +316,7 @@ The kill switch can disable all AI or one purpose/model without disabling core f
 
 | Area | Required evidence |
 | --- | --- |
-| Authorisation | Complete two-household and lost-membership substitution tests; provider spy proves zero calls on denial |
+| Authorisation | Complete two-workspace and lost-membership substitution tests; provider spy proves zero calls on denial |
 | Purpose/data quality | Unsupported, unavailable, stale, partial and insufficient datasets fail before provider use |
 | Minimisation | Every purpose schema contains only documented necessary fields; unknown/nested extras rejected |
 | Masking | 100% seeded canary removal/rejection across names, contact, location, payment, references, auth and secrets |
@@ -344,7 +344,7 @@ The model identifier, service tier, region, prompt policy, purpose schema, maski
 5. rollback compatibility or immediate kill-switch readiness; and
 6. recorded reviewer, date, evidence and residual risks.
 
-No provider alias such as “latest” may advance production behavior without this gate. Release is blocked by any prohibited-data transmission, cross-household leak, unvalidated number, absent Shan evidence, raw-payload retention, exposed secret, unacceptable provider terms, or inability to disable the feature.
+No provider alias such as “latest” may advance production behavior without this gate. Release is blocked by any prohibited-data transmission, cross-workspace leak, unvalidated number, absent Shan evidence, raw-payload retention, exposed secret, unacceptable provider terms, or inability to disable the feature.
 
 ## 21. Deferred decisions and Issue #14 acceptance
 

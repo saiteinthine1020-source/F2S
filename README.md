@@ -1,12 +1,12 @@
 # F2S
 
-F2S is a mobile-first family finance and farm investment management platform for a farming household. It is intended to help a family record reliable financial data, understand crop performance, plan future seasons, and receive cautious AI-assisted explanations without allowing AI to become the source of truth for financial calculations.
+F2S is a mobile-first financial management and farm-investment platform for households, farms, microbusinesses, and small businesses. It helps workspace members record reliable financial data, understand crop performance, plan future seasons, and receive cautious AI-assisted explanations without allowing AI to become the source of truth for financial calculations.
 
-This repository is currently in **Phase 0 - Foundation and Documentation**. No frontend or backend application features have been implemented.
+Phase 0 foundation work is complete. The repository is currently at the **Phase 1 - Authentication and Workspace documentation gate**. No identity, workspace, finance, farming, or other application feature has been implemented.
 
 ## Product goals
 
-F2S will help an authorised household:
+F2S will help authorised workspace members:
 
 - record household income, expenses, remittances, debts, and receivables;
 - create distinct farming investments for specific crops, seasons, years, locations, and planting cycles;
@@ -17,13 +17,13 @@ F2S will help an authorised household:
 - generate secure PDF, Excel, and CSV reports; and
 - receive Shan-language AI explanations based only on verified, masked backend data.
 
-The family retains responsibility for every farming and financial decision.
+Workspace members retain responsibility for every farming and financial decision.
 
 ## Product principles
 
 - **Accuracy before AI:** backend calculation services are the only source of truth for financial values.
 - **No fake information:** empty states never contain sample investments, invented totals, misleading charts, or automatic recommendations.
-- **Household isolation:** the backend must enforce access to household data.
+- **Workspace isolation:** the backend must enforce access to workspace data across every service, repository, job, file, report, cache, audit query, and AI-preparation path.
 - **Security by design:** secrets, financial data, exported files, and AI payloads require protection from the beginning.
 - **Mobile-first and resilient:** the Shan-first interface must work well on phones and tolerate unstable connectivity.
 - **Evidence over certainty:** forecasts and recommendations must state their period, calculations, assumptions, data quality, reasons, and uncertainty.
@@ -151,6 +151,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [REST API Design](docs/09_API_Design.md)
 - [UI/UX Design](docs/10_UI_UX_Design.md)
 - [Farming Investment Design](docs/11_Farming_Investment_Design.md)
+- [Workspace and Identity Foundation](docs/12_Workspace_Identity_Design.md)
 - [AI Design](docs/14_AI_Design.md)
 - [Security Design](docs/15_Security_Design.md)
 - [Report and Export Design](docs/16_Report_Export_Design.md)
@@ -163,6 +164,11 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [ADR-002: Use PostgreSQL](docs/adr/ADR-002-use-postgresql.md)
 - [ADR-003: Use FastAPI](docs/adr/ADR-003-use-fastapi.md)
 - [ADR-008: Use Decimal-Safe Financial Numeric Storage](docs/adr/ADR-008-safe-financial-numeric-storage.md)
+- [ADR-012: Use Workspace-Level Data Isolation](docs/adr/ADR-012-workspace-level-data-isolation.md)
+- [ADR-013: Separate Workspace Ownership from Membership Roles](docs/adr/ADR-013-workspace-ownership-and-membership.md)
+- [ADR-014: Use Opaque Rotating Server-Side Sessions](docs/adr/ADR-014-opaque-server-side-sessions.md)
+- [ADR-015: Use Controlled Bootstrap, Activation, and Recovery Lifecycles](docs/adr/ADR-015-bootstrap-activation-and-recovery.md)
+- [ADR-016: Model Workspace Type Separately from Enabled Modules](docs/adr/ADR-016-workspace-types-and-modules.md)
 - [GitHub Milestones](docs/project_management/GitHub_Milestones.md)
 - [First 20 GitHub Issues](docs/project_management/First_20_GitHub_Issues.md)
 - [Repository Initialisation](docs/project_management/Repository_Initialisation.md)
@@ -182,6 +188,9 @@ Security vulnerabilities must not be disclosed in public issues or pull requests
 
 ## Current status and delivery rule
 
-Phase 0 documentation foundation is the only active scope. The next implementation task must be selected from a GitHub Issue, must preserve the documented architecture, and must not implement a future phase prematurely.
+Phase 0 repository and documentation foundations are complete. Issue #41 is the active
+documentation gate for Phase 1 workspace and identity work. Application implementation must
+not begin until its workspace, role, ownership, bootstrap, session, and module decisions are
+consistent across the authoritative documents.
 
-No real household or farming data, secrets, production credentials, or generated dependencies may be committed.
+No real workspace, financial, or farming data, secrets, production credentials, or generated dependencies may be committed.

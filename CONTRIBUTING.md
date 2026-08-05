@@ -1,6 +1,6 @@
 # Contributing to F2S
 
-Thank you for helping improve F2S. Contributions must protect household privacy, preserve financial correctness and stay within the active project phase.
+Thank you for helping improve F2S. Contributions must protect workspace privacy, preserve financial correctness and stay within the active project phase.
 
 By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md), [Security Policy](SECURITY.md), repository [governance rules](docs/project_management/Repository_Governance.md) and the existing [MIT License](LICENSE).
 
@@ -53,7 +53,7 @@ Do not commit:
 
 - `.env` files or production configuration;
 - passwords, tokens, cookies, private keys, API keys or connection strings;
-- real household, finance, farming or provider data;
+- real workspace, finance, farming or provider data;
 - generated dependency/vendor directories;
 - private vulnerability or conduct reports; or
 - logs/traces/screenshots containing prohibited values.
@@ -65,11 +65,11 @@ If you discover or submit sensitive material, stop sharing it publicly and follo
 ## 5. Architecture and correctness expectations
 
 - Preserve the modular-monolith boundaries and public module contracts.
-- PostgreSQL and backend services enforce household isolation; frontend filtering is never authority.
+- PostgreSQL and backend services enforce workspace isolation; frontend filtering is never authority.
 - Financial values use the accepted decimal, currency, unit and rounding rules; binary floating point is prohibited for authoritative values.
 - Calculations have one backend source of truth and are not duplicated in routes, UI, reports or AI prompts.
 - Corrections/reversals preserve history; ordinary flows do not silently rewrite posted facts.
-- Empty states and examples never fabricate household totals, investments, recommendations or charts.
+- Empty states and examples never fabricate workspace totals, investments, recommendations or charts.
 - AI only explains authorised verified masked data and never originates authoritative calculations.
 - Security-sensitive configuration fails closed.
 
@@ -119,8 +119,8 @@ Before requesting review, confirm:
 
 - [ ] The change is authorised by one issue and stays in scope.
 - [ ] Dependencies and architecture boundaries are respected.
-- [ ] Household isolation, financial precision, privacy, logs, files, reports, AI and offline impact were considered where applicable.
-- [ ] No secret, real household data or generated dependency is included.
+- [ ] Workspace isolation, financial precision, privacy, logs, files, reports, AI and offline impact were considered where applicable.
+- [ ] No secret, real workspace data or generated dependency is included.
 - [ ] Requirements/design/ADR/changelog links are updated together.
 - [ ] Relevant checks pass, and unrun checks are labelled honestly.
 - [ ] The branch is current enough to review and contains no unrelated changes.
@@ -130,7 +130,7 @@ Security-sensitive, authentication, authorisation, destructive migration, backup
 
 ## 9. AI-assisted contributions
 
-AI tools may assist, but the contributor remains accountable for every line, license, claim, test result and security decision. Do not send repository secrets, private reports or real household data to an AI provider. Review generated text/code for fabricated behavior, unsafe dependencies, copied/licensing concerns and architecture violations. Disclose material AI assistance in the pull request when it helps reviewers evaluate provenance or risk.
+AI tools may assist, but the contributor remains accountable for every line, license, claim, test result and security decision. Do not send repository secrets, private reports or real workspace data to an AI provider. Review generated text/code for fabricated behavior, unsafe dependencies, copied/licensing concerns and architecture violations. Disclose material AI assistance in the pull request when it helps reviewers evaluate provenance or risk.
 
 ## 10. Licensing
 

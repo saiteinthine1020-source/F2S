@@ -14,7 +14,7 @@ This document does not claim that monitoring, on-call coverage, backups, alerts,
 2. Operators fail closed, preserve evidence and avoid speculative destructive actions.
 3. One incident has one declared lead, correlation ID, severity, timeline and decision log.
 4. Monitoring is actionable only when an owner receives and tests the alert.
-5. Logs and incident records use safe metadata; they are not a secondary household-data store.
+5. Logs and incident records use safe metadata; they are not a secondary workspace-data store.
 6. Audit/business truth is not edited through operations logs or direct database repair.
 7. Recovery uses approved immutable artifacts and verified backups, not an improvised production copy.
 8. External/provider failure remains outside committed core financial transactions.
@@ -38,7 +38,7 @@ The restricted operator registry records, without being committed publicly:
 - maintenance window and family/user communication channel; and
 - last alert, restore, key-custody and access-review drill dates.
 
-No contact list contains passwords, private keys, tokens, full database URLs or household records. Public repository placeholders are never treated as a working escalation path.
+No contact list contains passwords, private keys, tokens, full database URLs or workspace records. Public repository placeholders are never treated as a working escalation path.
 
 ## 5. Roles and authority
 
@@ -48,7 +48,7 @@ No contact list contains passwords, private keys, tokens, full database URLs or 
 | Operations lead | Inspect/deploy/restart approved services, coordinate provider | Directly edit business records |
 | Database/recovery lead | Freeze writes, inspect health, run approved backup/restore/migration procedure | Use runtime role for administration or guess schema rollback |
 | Security lead | Contain credentials/access, preserve evidence, assess notification | Publish sensitive incident details or destroy evidence |
-| Communications owner | Send approved safe status/user messages | Speculate, blame or expose household/security detail |
+| Communications owner | Send approved safe status/user messages | Speculate, blame or expose workspace/security detail |
 | Scribe/verifier | Maintain UTC timeline, decisions, checks and outcomes | Copy raw secrets/payloads into ticket/chat |
 
 A small team may combine roles, but each action still records which authority was exercised. High-impact recovery, secret rotation, database repair and return-to-service decisions receive independent verification when a qualified person is available.
@@ -59,7 +59,7 @@ These are initial internal objectives, not customer SLAs. Production cannot star
 
 | Severity | Examples | Acknowledge | Stabilise/decision objective | Update cadence |
 | --- | --- | --- | --- | --- |
-| `SEV-1 Critical` | Confirmed cross-household exposure, active secret compromise, destructive corruption, total outage requiring recovery | 30 minutes, 24x7 target | Begin containment within 30 minutes; recovery follows 4-hour RTO where applicable | Every 30 minutes |
+| `SEV-1 Critical` | Confirmed cross-workspace exposure, active secret compromise, destructive corruption, total outage requiring recovery | 30 minutes, 24x7 target | Begin containment within 30 minutes; recovery follows 4-hour RTO where applicable | Every 30 minutes |
 | `SEV-2 High` | Major feature unavailable, repeated 5xx, database degraded, backup RPO at risk, certificate near failure | 2 hours | Action plan within 4 hours | Every 2 hours |
 | `SEV-3 Medium` | Limited degradation, capacity warning, failed non-critical provider, single job backlog | 1 business day | Planned remediation within 2 business days | Daily/at material change |
 | `SEV-4 Low` | Maintenance improvement, isolated warning with no impact | 3 business days | Prioritised backlog decision | At closure/change |
@@ -113,9 +113,9 @@ Operators may collect:
 - backup ID/state/age/size class and checksum result; and
 - cloud/network/certificate event metadata.
 
-Operators must not paste passwords, tokens, cookies, authorisation/CSRF headers, private keys, full connection strings, payment/bank details, raw SQL parameters, request/response bodies, protected files/reports, household free text or unmasked AI payloads into terminal history, tickets, email/chat, screenshots or support bundles.
+Operators must not paste passwords, tokens, cookies, authorisation/CSRF headers, private keys, full connection strings, payment/bank details, raw SQL parameters, request/response bodies, protected files/reports, workspace free text or unmasked AI payloads into terminal history, tickets, email/chat, screenshots or support bundles.
 
-If sensitive evidence is necessary for a security investigation, it uses a separately approved encrypted evidence location, minimum access, chain-of-custody record and expiry. Public GitHub issues/PRs never contain vulnerability or household details.
+If sensitive evidence is necessary for a security investigation, it uses a separately approved encrypted evidence location, minimum access, chain-of-custody record and expiry. Public GitHub issues/PRs never contain vulnerability or workspace details.
 
 ## 10. Incident response lifecycle
 
@@ -164,7 +164,7 @@ Restart only a known failed service after capturing safe evidence and confirming
 4. Check storage/inodes, memory/OOM, connection exhaustion, certificate/authentication, lock and crash-recovery state.
 5. Use approved safe cancellation/restart only when diagnosis supports it.
 6. If integrity is uncertain or restart fails, invoke the Backup Design on replacement isolated infrastructure.
-7. Before reopening, reconcile constraints, counts, financial totals, files, audit and household isolation.
+7. Before reopening, reconcile constraints, counts, financial totals, files, audit and workspace isolation.
 
 Direct SQL correction of business records is prohibited. Required correction uses the domain's normal reversal/correction flow after service recovery.
 
@@ -219,14 +219,14 @@ HSTS rollback is not immediate; deployment and domain decisions must account for
 6. Rebuild/redeploy clean artifacts where embedding is possible; invalidate sessions if session/signing material is affected.
 7. Confirm old credential rejection, new credential least privilege, no persistence and alert coverage.
 
-## 18. Runbook: suspected data disclosure or cross-household access
+## 18. Runbook: suspected data disclosure or cross-workspace access
 
 1. Declare `SEV-1`, preserve evidence and stop the affected route/job/report/file/AI preparation or whole service if necessary.
 2. Record affected object types, time window and safe identifiers; do not expand access merely to inspect broadly.
 3. Revoke compromised sessions/credentials and isolate suspect artifacts/caches/providers.
 4. Determine whether content, existence, count, timing, logs, files or external payloads crossed the boundary.
-5. Fix through reviewed code/config and run the complete two-household isolation matrix plus canary/log scans.
-6. Security/legal/communications owners decide notification without placing affected household data in public systems.
+5. Fix through reviewed code/config and run the complete two-workspace isolation matrix plus canary/log scans.
+6. Security/legal/communications owners decide notification without placing affected workspace data in public systems.
 7. Return only after containment, regression evidence, secret/session action and monitoring are approved.
 
 ## 19. Runbook: optional provider outage
@@ -256,7 +256,7 @@ Planned maintenance records scope, expected user impact, backup/rollback, start/
 
 ## 21. User and stakeholder communication
 
-Messages state affected capability, start/current status, safe workaround if any, next update time and resolution confirmation. They do not expose stack traces, exploit detail, internal hosts, household identity, financial values or uncertain blame.
+Messages state affected capability, start/current status, safe workaround if any, next update time and resolution confirmation. They do not expose stack traces, exploit detail, internal hosts, workspace identity, financial values or uncertain blame.
 
 For security/privacy events, only the incident lead with security/legal input approves audience and content. Public status cannot claim “no data affected” until supported by evidence. Communications use reviewed Shan-first user text when delivered in-product.
 
@@ -274,7 +274,7 @@ At least quarterly, rotate scenarios and record `PASS`, `PARTIAL`, `FAIL` or `BL
 | --- | --- | --- | --- |
 | Total outage/restore | Host and Volume unavailable; primary operator reachable | Severity, recovery declaration, alternate copy/key, communication, cutover | Timed restore plan exercises 24h RPO/4h RTO and every verifier |
 | Database outage | PostgreSQL crash plus unknown integrity | Write freeze, evidence, restart-versus-restore decision | No direct repair; reconciliation gate named |
-| Cross-household incident | Synthetic report exposes another household identifier | Feature/service containment, session/provider scope, notification decision | Isolation/canary/regression and safe evidence plan |
+| Cross-workspace incident | Synthetic report exposes another workspace identifier | Feature/service containment, session/provider scope, notification decision | Isolation/canary/regression and safe evidence plan |
 | Failed migration rollback | New schema partially applied; old image incompatible | Stop, forward-fix versus restore, communication | No blind downgrade; exact authority/evidence |
 | Backup compromise | Primary backup credential can delete history | Revoke, preserve, use independent copy/key | Secondary recovery path and copy independence proven |
 | Certificate expiry | Renewal fails with 10 days remaining | Escalation, reissue, last-known-good handling | TLS is not weakened; external verification named |
@@ -299,4 +299,4 @@ Before production, F2S must prove:
 
 Deferred: actual operator/contact registry; on-call tooling/coverage; monitoring/log/alert vendors; exact dashboards/queries/commands; provider support contracts; maintenance window; public status channel; legal notification duties; forensics provider; incident evidence store; refined thresholds from measured baseline; and final record retention.
 
-Issue #16 operations acceptance is satisfied when monitoring, thresholds, alert ownership, logs, incidents, maintenance, provider failure and rollback have actionable sequences; initial acknowledgement/escalation objectives are honest; logs/evidence exclude secrets and household payloads; restore, outage, incident and rollback tabletop scenarios have pass evidence; recovery links to the Backup Design; and no live operational change is made.
+Issue #16 operations acceptance is satisfied when monitoring, thresholds, alert ownership, logs, incidents, maintenance, provider failure and rollback have actionable sequences; initial acknowledgement/escalation objectives are honest; logs/evidence exclude secrets and workspace payloads; restore, outage, incident and rollback tabletop scenarios have pass evidence; recovery links to the Backup Design; and no live operational change is made.

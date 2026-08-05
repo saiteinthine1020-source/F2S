@@ -481,7 +481,7 @@ Alerts contain enough correlation to investigate without copying protected paylo
 | Raw AI request/response payload | Not retained by F2S | Required |
 | Safe AI request metadata | 90 days | Provisional |
 | Offline drafts/queue | 7 days maximum | Provisional |
-| Backups | Defined by Issue #20 with cost, legal, RPO, key, and off-host evidence | TBD-VALIDATE |
+| Backups | 7 daily, 5 weekly, and 12 monthly full recovery points; dependent WAL and two independent encrypted backup copies follow the Backup and Recovery Design | Provisional |
 
 Deletion jobs are authorised, bounded, idempotent, audited safely, and tested against foreign/current records. Backup expiry follows the independent backup policy; deletion from live data does not falsely promise immediate removal from every protected backup.
 

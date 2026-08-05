@@ -111,6 +111,8 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Report and Export Design](docs/16_Report_Export_Design.md)
 - [Test Strategy](docs/17_Test_Strategy.md)
 - [Deployment Design](docs/18_Deployment_Design.md)
+- [Operations Runbook](docs/19_Operations_Runbook.md)
+- [Backup and Recovery Design](docs/20_Backup_Recovery.md)
 - [Data Dictionary](docs/21_Data_Dictionary.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)
 - [ADR-002: Use PostgreSQL](docs/adr/ADR-002-use-postgresql.md)

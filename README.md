@@ -107,6 +107,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [UI/UX Design](docs/10_UI_UX_Design.md)
 - [Farming Investment Design](docs/11_Farming_Investment_Design.md)
 - [Security Design](docs/15_Security_Design.md)
+- [Test Strategy](docs/17_Test_Strategy.md)
 - [Data Dictionary](docs/21_Data_Dictionary.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)
 - [ADR-002: Use PostgreSQL](docs/adr/ADR-002-use-postgresql.md)

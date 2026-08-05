@@ -317,6 +317,12 @@ Validation evidence for Issue #18:
 
 Evidence uses the statuses in Section 21. Checksum-verified Docker Compose v5.1.4 returned `PASS` for `config --quiet` using `.env.example` on 2026-08-05. Docker Engine was not installed or not available on `PATH` on the authoring workstation, so container startup, health, persistence and database smoke checks were `NOT RUN`, not `PASS`. Those runtime checks remain required before this foundation is merged.
 
+### 15.2 Initial API container implemented by Issue #20
+
+The local `api` service builds the backend Dockerfile, publishes port 8000 on IPv4 loopback only, joins `data`, runs as numeric non-root user 10001, uses a read-only root filesystem with a temporary `/tmp`, and reports liveness through `/health/live`. The runtime image contains the locked environment and application only; uv, compilers and test dependencies remain in the builder stage.
+
+The liveness check proves only that the ASGI process can respond. It does not query PostgreSQL, claim readiness for business traffic, disclose configuration, or create a dependency on the database. Database readiness and application readiness require later persistence and migration issues.
+
 ## 16. Build and release artifacts
 
 CI builds frontend and backend runtime images once from a clean commit with locked dependencies. Release evidence records source commit, image digest, build time, base/dependency versions, tests, secret scan, dependency/container scan, SBOM and provenance. Critical/High findings block production unless the Security Design's time-bound risk-acceptance rule is satisfied.

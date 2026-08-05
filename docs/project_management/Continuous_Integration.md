@@ -2,7 +2,7 @@
 
 ## 1. Purpose and scope
 
-Issue #19 establishes the Phase 0 repository validation baseline. It validates documentation, links, the local Compose definition, secret hygiene, generated-file policy and immutable GitHub Action references. It does not create or simulate frontend, backend, database-schema, migration, deployment or application-test jobs.
+Issue #19 established the repository validation baseline. Issue #20 adds real backend static and test jobs now that an executable backend skeleton and locked commands exist. CI still does not simulate frontend, database-schema, migration, deployment or unimplemented application behavior.
 
 The executable workflow is `.github/workflows/repository-validation.yml`. It runs for every pull request, every push to `main`, and manual dispatch. Workflow-level `contents: read` is the only `GITHUB_TOKEN` permission.
 
@@ -11,8 +11,10 @@ The executable workflow is `.github/workflows/repository-validation.yml`. It run
 | Required check | Responsibility | Failure result |
 | --- | --- | --- |
 | `Markdown and links` | Lint all tracked Markdown and validate reachable links and fragments | Malformed Markdown or a broken link fails the check |
-| `Configuration and repository policy` | Run controlled negative self-tests, reject prohibited tracked artifacts and floating Action tags, prove `.env` is ignored, and validate Compose interpolation | Any policy or Compose violation fails the check |
+| `Configuration and repository policy` | Run controlled negative self-tests, reject prohibited tracked artifacts and floating Action tags, prove `.env` is ignored, validate Compose interpolation, and build the backend image | Any policy, Compose, dependency-lock or container-build violation fails the check |
 | `Secret scan` | Scan complete Git history with Gitleaks without PR comments or uploaded findings | A detected credential pattern fails the check; findings must be handled privately |
+| `Backend static` | Synchronise the lock, check Ruff formatting/lint, and run strict mypy | Formatting, lint, dependency-lock or type violations fail the check |
+| `Backend tests` | Run configuration, factory, liveness and architecture tests | Any baseline backend test failure fails the check |
 
 Action dependencies are pinned to full commit SHAs. A dependency update must review the upstream release and diff, update the version comment and SHA together, and pass all three checks. Floating major, version or branch references are prohibited.
 
@@ -27,7 +29,14 @@ npx.cmd --yes markdownlint-cli2@0.22.1 "**/*.md"
 lychee --root-dir . --include-fragments --include-mail=false --max-retries 2 --timeout 20 --no-progress "**/*.md"
 $env:F2S_POSTGRES_PASSWORD = 'local-ci-validation-not-a-secret'
 docker compose --env-file .env.example config --quiet
+docker compose --env-file .env.example build api
 gitleaks git --redact --no-banner
+Set-Location backend
+uv sync --frozen --all-groups
+uv run --frozen ruff format --check .
+uv run --frozen ruff check .
+uv run --frozen mypy app tests
+uv run --frozen pytest
 ```
 
 The workflow-pinned `markdownlint-cli2-action` v24.2.0 packages the Markdown tool and `lychee-action` v2.9.0 packages Lychee v0.24.2. Local installations must use equivalent reviewed versions. Never paste a real secret into a negative test, terminal argument, workflow, issue, pull request or log.
@@ -42,7 +51,7 @@ After the workflow completes successfully on its first pull request:
 
 1. Open the repository ruleset or branch-protection settings for `main`.
 2. Require a pull request before merging and block force pushes and deletion.
-3. Require the exact checks `Markdown and links`, `Configuration and repository policy`, and `Secret scan`.
+3. Require the exact checks `Markdown and links`, `Configuration and repository policy`, `Secret scan`, `Backend static`, and `Backend tests`.
 4. Require the branch to be current with `main` when that policy is operationally acceptable.
 5. Do not permit an administrator bypass as the normal merge path; emergency use requires documented review.
 
@@ -54,4 +63,4 @@ A skipped, missing, stale, timed-out or cancelled required check is not a passin
 - Treat a secret finding as a potential incident. Do not copy the value into an issue or pull request. Follow `SECURITY.md`, revoke/rotate when applicable, and clean history only through a separately reviewed procedure.
 - External link failures may be retried by the configured checker. A persistent failure requires repairing or replacing the authoritative link; exclusions require narrow documented justification.
 - If a pinned external Action is unavailable or compromised, fail closed and review a replacement. Do not switch to a floating tag.
-- Application checks remain `NOT APPLICABLE/NOT RUN` until their owning implementation issues create real scaffolds and commands.
+- Frontend and unimplemented backend feature checks remain `NOT APPLICABLE/NOT RUN` until their owning issues create real scaffolds and commands.

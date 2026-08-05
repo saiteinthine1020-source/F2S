@@ -44,7 +44,7 @@ Any material change to this stack requires an Architecture Decision Record (ADR)
 
 ## Local Docker foundation
 
-Issue #18 introduces only the local PostgreSQL infrastructure boundary. It does not create an application service, database schema, migration, API, authentication flow, or sample data.
+The local Compose foundation contains PostgreSQL and the minimal FastAPI skeleton. The API is not connected to PostgreSQL yet and contains no database schema, migration, authentication flow, business feature or sample data.
 
 Prerequisites:
 
@@ -61,7 +61,7 @@ Validate and start the service:
 
 ```powershell
 docker compose config --quiet
-docker compose up -d postgres
+docker compose up -d postgres api
 docker compose ps
 ```
 
@@ -70,6 +70,7 @@ docker compose ps
 ```powershell
 docker compose exec postgres pg_isready --username=f2s_local_owner --dbname=f2s_local
 docker compose exec postgres psql --username=f2s_local_owner --dbname=f2s_local --command="SELECT current_database();"
+Invoke-RestMethod http://127.0.0.1:8000/health/live
 ```
 
 If `F2S_POSTGRES_USER` or `F2S_POSTGRES_DB` was changed in `.env`, use those values in the smoke commands. Stop the service while retaining its local data:
@@ -84,7 +85,7 @@ To reset only this Compose project's local PostgreSQL volume, use the following 
 docker compose down --volumes
 ```
 
-The database port is published only on IPv4 loopback (`127.0.0.1`) for local tools. The container also joins the private `data` network for future application services. Production must not publish PostgreSQL on any host interface; see the [Deployment Design](docs/18_Deployment_Design.md).
+The database and API ports are published only on IPv4 loopback (`127.0.0.1`) for local tools. Both containers join the private `data` network, but the API has no database dependency or client in this skeleton. Production must not publish PostgreSQL on any host interface; see the [Deployment Design](docs/18_Deployment_Design.md) and [Backend README](backend/README.md).
 
 ## Proposed final monorepo structure
 
@@ -160,12 +161,14 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Data Dictionary](docs/21_Data_Dictionary.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)
 - [ADR-002: Use PostgreSQL](docs/adr/ADR-002-use-postgresql.md)
+- [ADR-003: Use FastAPI](docs/adr/ADR-003-use-fastapi.md)
 - [ADR-008: Use Decimal-Safe Financial Numeric Storage](docs/adr/ADR-008-safe-financial-numeric-storage.md)
 - [GitHub Milestones](docs/project_management/GitHub_Milestones.md)
 - [First 20 GitHub Issues](docs/project_management/First_20_GitHub_Issues.md)
 - [Repository Initialisation](docs/project_management/Repository_Initialisation.md)
 - [Repository Governance](docs/project_management/Repository_Governance.md)
 - [Continuous Integration](docs/project_management/Continuous_Integration.md)
+- [Backend Setup and Boundaries](backend/README.md)
 
 ## Repository policies
 

@@ -1,4 +1,4 @@
-F2S
+# F2S
 
 F2S is a mobile-first family finance and farm investment management platform for a farming household. It is intended to help a family record reliable financial data, understand crop performance, plan future seasons, and receive cautious AI-assisted explanations without allowing AI to become the source of truth for financial calculations.
 
@@ -165,6 +165,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [First 20 GitHub Issues](docs/project_management/First_20_GitHub_Issues.md)
 - [Repository Initialisation](docs/project_management/Repository_Initialisation.md)
 - [Repository Governance](docs/project_management/Repository_Governance.md)
+- [Continuous Integration](docs/project_management/Continuous_Integration.md)
 
 ## Repository policies
 

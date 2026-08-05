@@ -297,7 +297,7 @@ Developer hot reload or debug ports bind to loopback and never appear in product
 The first implementation slice contains one `postgres` service only. Frontend, API, worker, migrations, authentication, business features, database schema and sample data remain out of scope. The root `docker-compose.yml` is the executable definition and the root README is the operator quick start.
 
 | Boundary | Phase 0 implementation | Security and persistence rule |
-|---|---|---|
+| --- | --- | --- |
 | Image | Docker Official Image `postgres:18.4-trixie` | Exact PostgreSQL patch and Debian variant are pinned; `latest` is forbidden |
 | Host exposure | Container port `5432` published as `127.0.0.1:${F2S_POSTGRES_HOST_PORT:-5432}` | Local IPv4 loopback only; this publish must not be copied into production |
 | Container network | Compose bridge network `data` | Private service-to-service boundary; no edge network exists in this slice |

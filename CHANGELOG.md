@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Phase 0 product, functional, architecture, database, API, UI/UX, farming, security, reporting, testing, AI, deployment, operations and recovery documentation.
 - Repository milestones, issue plan, governance and initialisation guidance.
 - Repository security, contribution, conduct and changelog policies.
+- Least-privilege Phase 0 repository validation for Markdown, links, Compose configuration, secret hygiene and prohibited generated files.
 
 ### Security
 

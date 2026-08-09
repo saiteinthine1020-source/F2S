@@ -17,10 +17,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
   ADR-016 covering isolation, ownership, sessions, onboarding, recovery, and module types.
 - SQLAlchemy 2 async PostgreSQL infrastructure, reviewed Alembic migration, and the five-table Identity and Workspace Access schema foundation.
 - PostgreSQL CI coverage for clean migration lifecycle, transaction rollback, and foundational workspace constraints.
+- Digest-only session, activation, recovery, ownership-transfer, and append-only audit persistence with a second reviewed Alembic migration.
+- PostgreSQL inspection and negative tests for incremental migration, unique digests, expiry/lifecycle rules, same-workspace transfers, audit references, and security query indexes.
 
 ### Security
 
 - Private vulnerability-reporting instructions that prohibit public disclosure of vulnerability details, secrets and workspace data.
+- Purpose-separated bearer and challenge digests replace raw credential persistence; audit metadata is bounded relational data without free-form payload storage.
 
 ### Changed
 

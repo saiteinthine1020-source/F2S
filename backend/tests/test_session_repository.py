@@ -315,10 +315,15 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                 assert outcome is None
 
             first = await _login(
-                sessions, credentials, passwords, dummy, email, now + timedelta(hours=1)
+                sessions, credentials, passwords, dummy, email, now + timedelta(hours=2)
             )
             second = await _login(
-                sessions, credentials, passwords, dummy, email, now + timedelta(hours=2)
+                sessions,
+                credentials,
+                passwords,
+                dummy,
+                email,
+                now + timedelta(hours=2, minutes=1),
             )
             async with transactional_session(sessions) as session:
                 await _service(session, credentials, passwords, dummy).logout(
@@ -327,7 +332,7 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                         first.csrf,
                         LogoutScope.CURRENT,
                         uuid4(),
-                        now + timedelta(hours=3),
+                        now + timedelta(hours=2, minutes=2),
                     )
                 )
             async with transactional_session(sessions) as session:
@@ -335,7 +340,7 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                     await _service(session, credentials, passwords, dummy).authenticate(
                         first.access,
                         correlation_id=uuid4(),
-                        now=now + timedelta(hours=3),
+                        now=now + timedelta(hours=2, minutes=3),
                     )
                     is None
                 )
@@ -343,7 +348,7 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                     await _service(session, credentials, passwords, dummy).authenticate(
                         second.access,
                         correlation_id=uuid4(),
-                        now=now + timedelta(hours=3),
+                        now=now + timedelta(hours=2, minutes=3),
                     )
                     is not None
                 )
@@ -355,7 +360,7 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                         second.csrf,
                         LogoutScope.ALL,
                         uuid4(),
-                        now + timedelta(hours=4),
+                        now + timedelta(hours=2, minutes=4),
                     )
                 )
             async with transactional_session(sessions) as session:
@@ -363,13 +368,13 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                     await _service(session, credentials, passwords, dummy).authenticate(
                         second.access,
                         correlation_id=uuid4(),
-                        now=now + timedelta(hours=4),
+                        now=now + timedelta(hours=2, minutes=5),
                     )
                     is None
                 )
 
             active = await _login(
-                sessions, credentials, passwords, dummy, email, now + timedelta(hours=5)
+                sessions, credentials, passwords, dummy, email, now + timedelta(hours=3)
             )
             async with transactional_session(sessions) as session:
                 account = await session.get(UserAccount, account_id, with_for_update=True)
@@ -380,7 +385,7 @@ def test_expiry_account_state_and_logout_scopes_remove_intended_access(
                     await _service(session, credentials, passwords, dummy).authenticate(
                         active.access,
                         correlation_id=uuid4(),
-                        now=now + timedelta(hours=6),
+                        now=now + timedelta(hours=3, minutes=5),
                     )
                     is None
                 )

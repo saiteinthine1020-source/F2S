@@ -5,7 +5,8 @@ identity/workspace slices. It includes one-time bootstrap, Admin-controlled Cont
 Advisor provisioning, single-use account activation, digest-only security and audit records,
 and workspace-scoped authorization. It also implements concealed normalized-email login,
 short-lived opaque bearer authentication, rotating server-side refresh sessions, reuse-family
-revocation, and logout. Production activation delivery, distributed authentication counters,
+revocation, logout, reauthenticated password change, and concealed single-use account
+recovery. Production activation/recovery delivery, distributed authentication counters,
 ownership transfer, finance, farming, and background jobs remain out of scope.
 
 ## Boundaries
@@ -93,6 +94,21 @@ five-failure progressive delay, and limits one network subject to 30 attempts pe
 before Argon2 verification. It is process-local developer/test support. Production rejects
 login until a reviewed distributed counter adapter is configured; it must not silently fall
 back to per-process counters.
+
+Password change requires the current password and the currently authenticated session. A
+successful change replaces the Argon2id verifier, increments the account version, retains
+the current session, and revokes every other Active session. Recovery request always returns
+the same `202 ACCEPTED` envelope for eligible, missing, inactive, and owner accounts. Eligible
+non-owner accounts receive a 24-hour digest-only challenge through the development recovery
+outbox; restarting recovery revokes the earlier Issued challenge. Confirmation hashes the
+new password before bounded verification, atomically consumes one challenge, and revokes all
+Active sessions. Concurrent completion has one winner.
+
+Local/test recovery throttling uses keyed recipient/network subjects and the provisional
+five-recipient and 20-network requests per hour limits. Production rejects recovery requests
+until both a distributed limiter and durable delivery adapter are configured. Ordinary owner
+recovery is deliberately ineligible: sole-owner recovery requires the separately reviewed
+high-assurance operator procedure and cannot create or transfer ownership.
 
 Rate-limit storage remains an injected adapter. The shared contracts accept only keyed
 subject digests and bounded scopes—never raw identifiers or account-existence flags.

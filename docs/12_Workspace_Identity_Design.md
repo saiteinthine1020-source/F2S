@@ -197,11 +197,33 @@ Password change, account suspension, membership revocation, ownership transfer, 
 security recovery revoke the sessions required by their threat model. The API never places
 tokens in URLs or application logs.
 
+The implemented password-change route requires the current Argon2id password in addition to
+the current bearer-authenticated session. Success replaces the verifier, increments the
+account version, retains that current session, and revokes every other Active session. A
+wrong current password and stale account/session state return one bounded authentication
+failure without password material.
+
 ## 8. Recovery and ownership transfer
 
 Account recovery must exist before public launch. Recovery responses are indistinguishable
 for existing and non-existing accounts. Recovery credentials follow the same digest,
 expiry, single-use, rate-limit, and audit requirements as activation credentials.
+
+The initial recovery implementation returns the same `202 ACCEPTED` representation for an
+eligible address, an unknown address, an inactive account, and a workspace owner. It always
+performs purpose-separated credential issuance and safe request auditing. For an eligible
+Active non-owner account it revokes earlier Issued recovery challenges, stores only the new
+digest, and passes the clear value once to the delivery port. Local/test delivery is a
+process-local outbox; production fails closed uniformly until a durable provider and
+distributed five-recipient/20-network-per-hour limiter are configured.
+
+Confirmation requires exact Origin and JSON, validates purpose, keyed digest, Issued state,
+24-hour expiry, and account eligibility under one challenge lock, then atomically stores the
+new Argon2id verifier, increments the account version, marks the challenge Used, and revokes
+all Active sessions. Expired challenges become Expired, restart makes earlier Issued values
+Revoked, replay is denied, and concurrent confirmation has one winner. Ordinary recovery is
+not an owner-recovery shortcut; a workspace owner is directed to the separately reviewed
+high-assurance operator boundary without revealing that state publicly.
 
 Ownership transfer is not a role PATCH. It is a dedicated stateful operation:
 

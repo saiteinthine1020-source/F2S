@@ -115,6 +115,15 @@ The access credential is transmitted only in the header. Rotating opaque refresh
 | `GET /api/v1/me` | Return safe current actor/account summary | Authenticated |
 | `GET /api/v1/me/workspaces` | Return Active memberships eligible for selection | Authenticated |
 
+Password change accepts only strict JSON with `current_password` and `new_password`, requires
+the exact configured Origin plus the current bearer session, and returns `204` on success.
+Recovery request accepts an email and always returns `202` with
+`{"data":{"status":"ACCEPTED"}}` after its concealed rate-limit boundary. Recovery confirm
+accepts the one-time value and `new_password`; it returns `204` for the single atomic winner
+or the standard concealed `401 UNAUTHENTICATED` error for invalid, expired, revoked, replayed,
+ineligible, or concurrent-loser attempts. These routes use `Cache-Control: no-store` and
+never return or place challenge/password material in a URL.
+
 Invalid, expired, reused, revoked, or inactive credentials return safe authentication errors. Login, activation, refresh, and recovery responses do not reveal whether an unrelated account exists.
 
 The initial login request is `{ "email": "...", "password": "..." }`. A successful login or

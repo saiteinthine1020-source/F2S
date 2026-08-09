@@ -25,6 +25,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Focused security tests for password hashing/rehash, entropy, purpose separation, constant-time comparison, expiry/replay/revocation, throttling, and redaction.
 - Bounded Phase 1 audit and correlation contracts, an append-only transaction-bound SQLAlchemy writer, safe concealed-denial evidence, and an authoritative event catalogue.
 - Audit validation and PostgreSQL evidence for UTC identity/workspace events, metadata redaction, append-only boundaries, correlation consistency, and atomic state-plus-audit commit/rollback.
+- One-time serialized first-Admin/workspace bootstrap with normalized input, Argon2id-only password persistence, explicit module defaults, atomic owner/audit creation, safe API envelopes, and permanent post-success closure.
+- Bootstrap concurrency, rollback, validation, owner, audit, API, and operator-procedure evidence.
 
 ### Security
 

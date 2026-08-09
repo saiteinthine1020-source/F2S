@@ -205,6 +205,7 @@ validation.
 Phase 1 route families are:
 
 ```text
+GET    /api/v1/setup/bootstrap
 POST   /api/v1/setup/bootstrap
 POST   /api/v1/auth/activate
 POST   /api/v1/auth/login

@@ -29,6 +29,15 @@ input is either a canonical UUID or a generated UUIDv4; invalid input receives a
 correlation and is never echoed. See the
 [Audit Event Catalogue](../docs/22_Audit_Event_Catalogue.md).
 
+The one-time installation bootstrap is available at `GET/POST /api/v1/setup/bootstrap`.
+PostgreSQL serializes callers through the singleton installation guard; the account, Argon2id
+password verifier, workspace, Active Admin owner membership, explicit module defaults, audit
+events, and completion marker share one transaction. Exactly one concurrent request can win,
+and later attempts receive a concealed conflict. No login session is created by this issue.
+Operators must follow the
+[Bootstrap Operator Procedure](../docs/23_Bootstrap_Operator_Procedure.md); there are no default
+credentials or ordinary reset path.
+
 Opaque credentials use at least 32 random bytes. Persistence receives only an HMAC-SHA-256 digest whose input includes a fixed versioned domain and bounded purpose. The HMAC key is injected as redacted runtime key material and must contain at least 32 bytes; no example or fallback key exists in source. Activation/recovery callers use the provisional 24-hour lifetime constant. Verification always derives and compares the digest with `hmac.compare_digest` before returning bounded invalid, expired, consumed, or revoked results. Consumption verifies the presented value and purpose in the same helper; a later persistence service remains responsible for making database verification and consumption atomic.
 
 Rate-limit storage remains an injected adapter. The shared contracts accept only keyed subject digests and bounded scopes—never raw identifiers or account-existence flags. Fixed-window threshold and progressive login-delay policies are deterministic, while production distributed counters and final measured limits remain later work.

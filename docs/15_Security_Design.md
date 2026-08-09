@@ -286,6 +286,39 @@ Limits use distributed server-side counters and combine account/session/actor/wo
 
 Responses use safe `429 RATE_LIMITED` and `Retry-After` when known. Limits apply before expensive hashing, parsing, rendering, or provider calls where feasible. Successful idempotent replay may use a low-cost tier but never bypasses abuse detection or authorisation.
 
+### 14.1 Implemented identity-security primitives
+
+The framework-free Identity Security module implements the shared primitive layer without
+adding an authentication endpoint or workflow:
+
+- `argon2-cffi` is locked and configured explicitly for Argon2id with the provisional
+  65,536 KiB memory, three-iteration, parallelism-one candidate, 32-byte output, random
+  16-byte salt, and successful-verification rehash detection;
+- new-password validation accepts 15 through 1,024 Unicode characters and supports an
+  injected compromised/context-specific password blocklist; passwords are not trimmed;
+- opaque access, refresh, CSRF, activation, recovery, and ownership-transfer values use at
+  least 32 bytes from Python's cryptographic random generator;
+- persistence material is a purpose-separated HMAC-SHA-256 digest using a versioned domain
+  and an injected key of at least 32 bytes; the database `SHA256` representation code names
+  the underlying digest while the application construction is keyed HMAC;
+- digest verification uses `hmac.compare_digest`; wrong-purpose, invalid, expired,
+  consumed, and revoked outcomes are bounded internal codes without bearer content;
+- timestamps must be timezone-aware, activation/recovery may use the provisional 24-hour
+  constant, and consumption verifies value and purpose before producing immutable use
+  evidence; the later persistence service must perform verification/consumption atomically;
+- rate-limit adapters receive a bounded scope and keyed subject digest, never a raw login
+  identifier or account-existence flag; fixed-window and progressive delay policies are
+  deterministic and storage-independent; and
+- clear values, keys, encoded password verifiers, keyed digests, abuse subjects, and
+  failures use redacted ordinary representations or bounded codes. Tests use only clearly
+  synthetic canaries and must not print their revealed values.
+
+The digest key has no source-code default and must be supplied by reviewed runtime secret
+configuration when a consuming workflow is implemented. Key rotation invalidates affected
+outstanding digests and therefore requires an explicit session/challenge revocation and
+deployment procedure. Production distributed counters, final measured limits, public
+authentication behavior, and delivery remain deferred to their owning Phase 1 issues.
+
 ## 15. Authorisation and workspace isolation
 
 The backend enforces this sequence for every protected operation:

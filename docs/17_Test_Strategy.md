@@ -300,6 +300,12 @@ state plus audit either commits or rolls back in the same PostgreSQL transaction
 tests assert that safe errors and evidence share the validated/generated UUID without reflecting
 malformed input.
 
+Bootstrap integration tests contend two independent PostgreSQL transactions for the singleton
+guard and require one success plus one concealed unavailable result. They also inject required
+audit failure to prove complete rollback, verify Argon2id-only password persistence, sole Active
+Admin ownership, explicit module defaults, correlated audit evidence, permanent closure, and
+safe availability/error envelopes.
+
 Scanner success does not replace targeted tests or review. A Critical/High finding cannot be hidden by excluding a path; a time-bound risk acceptance requires owner, mitigation, expiry, and release approval.
 
 ## 15. Frontend component, accessibility, and internationalisation suites

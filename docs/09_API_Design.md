@@ -103,6 +103,7 @@ The access credential is transmitted only in the header. Rotating opaque refresh
 
 | Method and path | Purpose | Auth state |
 | --- | --- | --- |
+| `GET /api/v1/setup/bootstrap` | Return only whether one-time installation bootstrap remains available | Public, read-only, `no-store` at the hardened edge |
 | `POST /api/v1/setup/bootstrap` | Atomically create the first account, workspace, Active Admin owner membership, and audit evidence | Available only before bootstrap completion |
 | `POST /api/v1/auth/activate` | Activate eligible account/membership | Eligible single-use activation evidence |
 | `POST /api/v1/auth/login` | Authenticate and create server-side session | Public with rate limit; no account enumeration |

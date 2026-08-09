@@ -35,12 +35,15 @@ export class FakeApiClient implements ApiClient {
   }
 }
 
-export function renderAuthApplication(client: ApiClient, route = "/"): RenderResult {
+export function renderAuthApplication(
+  client: ApiClient,
+  route = "/",
+): RenderResult & { readonly router: ReturnType<typeof createMemoryRouter> } {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
   });
   const router = createMemoryRouter(appRoutes, { initialEntries: [route] });
-  return render(
+  const result = render(
     <I18nextProvider i18n={createI18n("en")}>
       <ApiClientContext.Provider value={client}>
         <QueryClientProvider client={queryClient}>
@@ -51,6 +54,7 @@ export function renderAuthApplication(client: ApiClient, route = "/"): RenderRes
       </ApiClientContext.Provider>
     </I18nextProvider>,
   );
+  return { ...result, router };
 }
 
 export const sessionEnvelope = {

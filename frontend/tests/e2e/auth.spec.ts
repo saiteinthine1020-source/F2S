@@ -1,6 +1,9 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const workspaceId = "11111111-1111-4111-8111-111111111111";
+const ownerMembershipId = "22222222-2222-4222-8222-222222222222";
+const candidateMembershipId = "33333333-3333-4333-8333-333333333333";
+const transferId = "44444444-4444-4444-8444-444444444444";
 
 async function fulfillJson(route: Route, body: object, status = 200) {
   await route.fulfill({
@@ -41,7 +44,7 @@ async function mockApi(page: Page, bootstrapAvailable = false) {
       await fulfillJson(route, {
         data: [
           {
-            membership_id: "22222222-2222-4222-8222-222222222222",
+            membership_id: ownerMembershipId,
             role: "ADMIN",
             workspace: {
               id: workspaceId,
@@ -72,6 +75,63 @@ async function mockApi(page: Page, bootstrapAvailable = false) {
           modules: [],
         },
       });
+      return;
+    }
+    if (path.endsWith(`/workspaces/${workspaceId}/members`) && request.method() === "GET") {
+      const createdAt = new Date().toISOString();
+      await fulfillJson(route, {
+        data: [
+          {
+            id: ownerMembershipId,
+            email: "admin@example.invalid",
+            display_name: "Synthetic Admin",
+            role: "ADMIN",
+            status: "ACTIVE",
+            account_status: "ACTIVE",
+            preferred_language: "en",
+            timezone: "Asia/Tokyo",
+            last_login_at: null,
+            created_at: createdAt,
+            version: 1,
+          },
+          {
+            id: candidateMembershipId,
+            email: "candidate@example.invalid",
+            display_name: "Synthetic Candidate",
+            role: "CONTRIBUTOR",
+            status: "ACTIVE",
+            account_status: "ACTIVE",
+            preferred_language: "en",
+            timezone: "Asia/Tokyo",
+            last_login_at: null,
+            created_at: createdAt,
+            version: 2,
+          },
+        ],
+      });
+      return;
+    }
+    if (path.endsWith(`/workspaces/${workspaceId}/ownership-transfers`)) {
+      await fulfillJson(
+        route,
+        {
+          data: {
+            id: transferId,
+            workspace_id: workspaceId,
+            current_owner_membership_id: ownerMembershipId,
+            target_membership_id: candidateMembershipId,
+            former_owner_role: "CONTRIBUTOR",
+            status: "INITIATED",
+            expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+            version: 1,
+          },
+        },
+        201,
+      );
+      return;
+    }
+    if (path.endsWith(`/workspaces/${workspaceId}/ownership-transfers/${transferId}/cancel`)) {
+      await route.fulfill({ status: 204, headers: { "Cache-Control": "no-store" } });
       return;
     }
     if (path.endsWith("/auth/recovery/request")) {
@@ -170,4 +230,34 @@ test("password change and logout complete from the protected shell", async ({ pa
   await page.getByRole("button", { name: "Sign out on this device" }).click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   await expect(page.getByText("Synthetic household")).toHaveCount(0);
+});
+
+test("Admin ownership transfer requires consequences and reauthentication without URL evidence", async ({
+  page,
+}) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill("admin@example.invalid");
+  await page.getByLabel("Password").fill("synthetic-password-value");
+  await page.getByRole("button", { name: "Sign in securely" }).click();
+  await page.getByRole("link", { name: "Administration" }).click();
+  await page.getByRole("link", { name: /Transfer workspace ownership/u }).click();
+
+  const password = "ownership-reauthentication-value";
+  await page.getByLabel("New owner").selectOption(candidateMembershipId);
+  await page.getByLabel("Current password").fill(password);
+  await page.getByLabel(/I understand the selected member becomes the sole Admin/u).check();
+  await page.getByRole("button", { name: "Review ownership transfer" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("Initiate ownership transfer?");
+  await expect(page).not.toHaveURL(new RegExp(password, "u"));
+  await page.getByRole("button", { name: "Initiate transfer" }).click();
+
+  await expect(page.getByText("Waiting for confirmation").first()).toBeVisible();
+  await expect(page.getByText(transferId)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.getByRole("button", { name: "Cancel pending transfer" }).click();
+  await expect(page.getByText("Cancelled").first()).toBeVisible();
 });

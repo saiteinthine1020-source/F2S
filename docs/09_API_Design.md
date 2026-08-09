@@ -183,6 +183,43 @@ reclassify history. Disabling a module makes it unavailable to future protected 
 but retains existing records and configuration for later re-enablement. Unknown or foreign
 workspace identifiers use the ordinary concealed `RESOURCE_NOT_FOUND` response.
 
+### 6.2 Implemented membership lifecycle contract
+
+`GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
+associated email, display name, role, membership status, bounded account status, language,
+timezone, last-login time, creation time, and membership version. It does not expose a global
+account ID, password/credential data, session identifiers, or another workspace's membership.
+
+Every membership mutation requires an Active Admin context, exact configured Origin, strict
+JSON content type, and `If-Match: "vN"`. Missing, malformed, or stale versions use the same
+428/412 precondition outcomes as workspace settings. PATCH accepts exactly one operation:
+`{"role":"CONTRIBUTOR|ADVISOR"}` or `{"status":"SUSPENDED"}`. Reactivation, activation
+restart, and DELETE accept an empty `{}` command body. DELETE revokes access and retains the
+historical membership row. Successful non-DELETE mutations return the resulting
+representation or an empty command response with the new membership ETag; DELETE returns 204
+with the new ETag.
+
+| Current status | Operation | Result |
+| --- | --- | --- |
+| Pending | Contributor/Advisor role change | Pending with new role |
+| Pending | Activation restart | Pending with replacement single-use challenge |
+| Pending | Revoke | Revoked; issued activation challenges revoked |
+| Active | Contributor/Advisor role change | Active with new role |
+| Active | Suspend | Suspended |
+| Active | Revoke | Revoked |
+| Suspended | Contributor/Advisor role change | Suspended with new role |
+| Suspended | Reactivate, when account is Active | Active |
+| Suspended | Revoke | Revoked |
+| Revoked | Any generic lifecycle operation | `409 INVALID_STATE_TRANSITION` |
+| Admin owner | Any generic role/lifecycle operation | `409 OWNERSHIP_TRANSFER_REQUIRED` |
+
+Role change, suspension, and revocation revoke every Active account-scoped session for the
+affected user. This intentionally requires reauthentication even for another workspace;
+Phase 1 has no workspace-bound session that could be revoked more narrowly. Protected
+authorization also rechecks current membership state and role on every request. Foreign IDs
+remain concealed, stale writes have no lifecycle side effect, and successful/denied changes
+write bounded audit evidence without submitted profile or identifier payloads.
+
 ## 7. Workspace context and authorisation
 
 All workspace business paths begin:

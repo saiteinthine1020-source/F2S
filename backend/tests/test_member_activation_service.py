@@ -50,9 +50,11 @@ class CapturingMemberRepository(MemberActivationRepository):
         context: AuthorizationContext,
         membership_id: UUID,
         credential: IssuedOpaqueCredential,
-    ) -> str:
+        expected_version: int,
+    ) -> tuple[str, int]:
         del context, membership_id, credential
-        return "member@example.invalid"
+        assert expected_version == 1
+        return "member@example.invalid", 2
 
     async def activate(
         self, attempt: ActivationAttempt, password_digest: PasswordDigest | None

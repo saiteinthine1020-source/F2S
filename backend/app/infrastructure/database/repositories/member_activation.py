@@ -38,6 +38,7 @@ from app.modules.member_activation.service import (
     MemberProvisioning,
     ProvisionedMember,
 )
+from app.modules.member_lifecycle import MemberVersionMismatch
 from app.modules.workspace_access import (
     AuthorizationContext,
     AuthorizationDenied,
@@ -116,7 +117,8 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
         context: AuthorizationContext,
         membership_id: UUID,
         credential: IssuedOpaqueCredential,
-    ) -> str:
+        expected_version: int,
+    ) -> tuple[str, int]:
         await self._require_admin(context)
         row = (
             await self._session.execute(
@@ -134,6 +136,15 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
         if row is None:
             raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
         membership, email = row
+        if membership.version != expected_version:
+            await self._audit(
+                context=context,
+                action=AuditAction.ACTIVATION_RESTARTED,
+                result=AuditResult.DENIED,
+                membership_id=membership_id,
+                reason=AuditReason.STALE_VERSION,
+            )
+            raise MemberVersionMismatch
         await self._session.execute(
             update(ActivationChallenge)
             .where(
@@ -154,6 +165,7 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
             membership.user_account_id,
             credential,
         )
+        membership.version += 1
         await self._session.flush()
         await self._audit(
             context=context,
@@ -161,7 +173,7 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
             result=AuditResult.SUCCEEDED,
             membership_id=membership_id,
         )
-        return str(email)
+        return str(email), membership.version
 
     async def activate(
         self, attempt: ActivationAttempt, password_digest: PasswordDigest | None
@@ -302,6 +314,7 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
         result: AuditResult,
         membership_id: UUID,
         audit_context: AuditContext = AuditContext.ACTIVATION,
+        reason: AuditReason | None = None,
     ) -> None:
         await SqlAlchemyAuditWriter(self._session).append(
             AuditEventIntent(
@@ -314,6 +327,7 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
                 correlation_id=context.correlation_id,
                 resource_type=AuditResourceType.WORKSPACE_MEMBERSHIP,
                 resource_id=membership_id if result is not AuditResult.DENIED else None,
+                reason=reason,
                 source=AuditSource.API,
                 context=audit_context,
             )

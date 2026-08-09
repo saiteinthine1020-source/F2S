@@ -21,6 +21,18 @@ Workspace type supplies creation defaults but never overrides explicit module fl
 a module retains its configuration row and historical data; changing type, name, or modules
 preserves the workspace ID and writes bounded audit evidence.
 
+Membership administration is available to Active Admins at the workspace `/members` route
+family. The list returns the membership ID, associated email and safe account profile,
+bounded account/membership states, last-login time, and membership version; it never returns
+the global account ID, session IDs, or credential material. Versioned mutations require
+strict JSON, the exact browser Origin, and `If-Match: "vN"`. PATCH performs exactly one
+Contributor/Advisor role change or Active-to-Suspended transition. Reactivation permits only
+Suspended-to-Active, revocation is terminal and retains the membership row, and activation
+restart permits only Pending Contributor/Advisor memberships. Generic operations never
+target the Admin owner. Role change, suspension, and revocation revoke all Active sessions
+for the affected account because Phase 1 sessions are account-scoped; current membership is
+also revalidated on every protected request.
+
 ## Boundaries
 
 ```text

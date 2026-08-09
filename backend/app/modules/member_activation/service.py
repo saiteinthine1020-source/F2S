@@ -92,7 +92,8 @@ class MemberActivationRepository(Protocol):
         context: AuthorizationContext,
         membership_id: UUID,
         credential: IssuedOpaqueCredential,
-    ) -> str: ...
+        expected_version: int,
+    ) -> tuple[str, int]: ...
 
     async def activate(
         self,
@@ -169,18 +170,22 @@ class MemberActivationService:
         context: AuthorizationContext,
         membership_id: UUID,
         *,
+        expected_version: int,
         now: datetime | None = None,
-    ) -> None:
+    ) -> int:
         issued_at = now or datetime.now(UTC)
         issued = self._credentials.issue(
             OpaqueCredentialPurpose.ACTIVATION_CHALLENGE,
             now=issued_at,
             lifetime=DEFAULT_CHALLENGE_LIFETIME,
         )
-        recipient = await self._repository.restart(context, membership_id, issued)
+        recipient, version = await self._repository.restart(
+            context, membership_id, issued, expected_version
+        )
         await self._delivery.deliver(
             ActivationDelivery(recipient, issued.value, issued.record.expires_at)
         )
+        return version
 
     async def activate(self, attempt: ActivationAttempt) -> ActivationOutcome:
         password_digest = (

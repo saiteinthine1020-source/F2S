@@ -13,6 +13,7 @@ from app.api.browser_security import BrowserSecurityDenied
 from app.api.errors import correlation_for, safe_error
 from app.api.health import router as health_router
 from app.api.member_activation import router as member_activation_router
+from app.api.member_lifecycle import router as member_lifecycle_router
 from app.api.security import Unauthenticated
 from app.api.sessions import router as sessions_router
 from app.api.workspace_settings import PreconditionRequired
@@ -41,6 +42,7 @@ from app.modules.member_activation import (
     DuplicateMembership,
     RejectingActivationDelivery,
 )
+from app.modules.member_lifecycle import MemberVersionMismatch
 from app.modules.sessions import DevelopmentLoginAbuseControl, RejectingLoginAbuseControl
 from app.modules.workspace_access import (
     AuthorizationDenied,
@@ -107,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(health_router)
     application.include_router(bootstrap_router)
     application.include_router(member_activation_router)
+    application.include_router(member_lifecycle_router)
     application.include_router(sessions_router)
     application.include_router(account_security_router)
     application.include_router(workspace_settings_router)
@@ -210,6 +213,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def workspace_version_mismatch(
         request: Request, error: WorkspaceVersionMismatch
     ) -> Response:
+        del error
+        return safe_error(
+            status_code=412,
+            code="VERSION_MISMATCH",
+            message="The resource version is no longer current.",
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(MemberVersionMismatch)
+    async def member_version_mismatch(request: Request, error: MemberVersionMismatch) -> Response:
         del error
         return safe_error(
             status_code=412,

@@ -21,6 +21,7 @@ def test_defaults_are_non_debug_local_settings() -> None:
     assert settings.environment is RuntimeEnvironment.LOCAL
     assert settings.debug is False
     assert settings.docs_enabled is False
+    assert settings.frontend_origin == "http://127.0.0.1:5173"
 
 
 @pytest.mark.parametrize("unsafe_field", ["debug", "docs_enabled"])
@@ -80,3 +81,29 @@ def test_short_identity_digest_key_is_rejected() -> None:
     values = {**DATABASE_VALUES, "identity_digest_key": "too-short"}
     with pytest.raises(ValidationError):
         Settings.model_validate(values)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://user@example.invalid",
+        "https://example.invalid/path",
+        "https://example.invalid?query=value",
+        "null",
+    ],
+)
+def test_frontend_origin_must_be_one_exact_origin(origin: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate({**DATABASE_VALUES, "frontend_origin": origin})
+
+
+def test_production_frontend_origin_requires_https() -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate(
+            {
+                **DATABASE_VALUES,
+                "environment": "production",
+                "database_sslmode": "verify-full",
+                "frontend_origin": "http://app.example.invalid",
+            }
+        )

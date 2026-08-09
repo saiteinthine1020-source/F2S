@@ -117,6 +117,14 @@ The access credential is transmitted only in the header. Rotating opaque refresh
 
 Invalid, expired, reused, revoked, or inactive credentials return safe authentication errors. Login, activation, refresh, and recovery responses do not reveal whether an unrelated account exists.
 
+The initial login request is `{ "email": "...", "password": "..." }`. A successful login or
+refresh returns `access_token`, `csrf_token`, `token_type`, `access_expires_at`, and
+`absolute_expires_at` under `data`; it never returns the refresh value. Login, activation,
+refresh, and logout are strict JSON browser mutations with exact Origin validation. Refresh
+and logout require the refresh cookie plus `X-CSRF-Token`. Logout accepts
+`{ "scope": "CURRENT" }` or `{ "scope": "ALL" }`, defaults to `CURRENT`, returns `204`, and
+expires the cookie even when the current session is already unavailable.
+
 Phase 1 workspace and membership routes are:
 
 | Method and path | Purpose | Required authority |

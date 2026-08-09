@@ -173,6 +173,26 @@ F2S uses short-lived opaque access credentials and rotating server-side refresh 
 Refresh credentials are held in a Secure, HttpOnly, SameSite cookie and protected by CSRF
 and Origin checks. Rotation detects reuse and revokes the affected session family.
 
+The initial implementation uses a 15-minute access lifetime, seven-day refresh idle expiry,
+30-day absolute lifetime, and zero rotation grace. Each generation stores independent keyed
+digests for its access, refresh, and CSRF values. A successful refresh atomically marks the
+parent Rotated and inserts one Active child in the same family. Reusing any Rotated refresh
+value marks historical Rotated generations Reuse Detected and revokes the family's current
+Active generation. Concurrent refresh therefore has one rotation winner and then safely
+revokes the family when the losing zero-grace request becomes reuse.
+
+Login and activation require the exact configured browser Origin. Refresh and logout require
+that Origin, strict JSON, the `__Host-f2s_refresh` cookie, and the session-bound CSRF header.
+Login and refresh return access/CSRF values with `no-store`; refresh is never returned in JSON.
+`CURRENT` logout revokes the current family, while `ALL` logout revokes every Active session
+for the authenticated account. Both clear the cookie and repeated logout is harmless.
+
+Protected bearer authentication derives the account from the access digest and rechecks the
+session status, access/idle/absolute expiry, and current account state on every request. An
+inactive account cannot log in or continue an existing session. Local/test abuse counters use
+only keyed account/network digests. Production fails closed until the deployment supplies the
+required distributed counter adapter.
+
 Password change, account suspension, membership revocation, ownership transfer, and
 security recovery revoke the sessions required by their threat model. The API never places
 tokens in URLs or application logs.

@@ -1,14 +1,15 @@
 """Admin member provisioning and concealed public activation HTTP boundary."""
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.bootstrap import Session
+from app.api.browser_security import BrowserRequest, require_browser_request
 from app.api.errors import safe_error
 from app.api.security import AuthenticatedAccountId
 from app.infrastructure.database.repositories.member_activation import (
@@ -26,6 +27,7 @@ from app.modules.member_activation import (
 )
 
 router = APIRouter(prefix="/api/v1", tags=["members"])
+BrowserBoundary = Annotated[BrowserRequest, Depends(require_browser_request)]
 
 
 class ProvisionMemberRequest(BaseModel):
@@ -144,7 +146,9 @@ async def activate_account(
     request: Request,
     response: Response,
     session: Session,
+    browser: BrowserBoundary,
 ) -> ActivationEnvelope | Response:
+    del browser
     outcome = await service_for(request, session).activate(
         ActivationAttempt(
             value=SecretText(payload.value.get_secret_value()),

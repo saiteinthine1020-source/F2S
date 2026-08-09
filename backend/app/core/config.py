@@ -2,6 +2,7 @@
 
 from enum import StrEnum
 from typing import Self
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,6 +45,7 @@ class Settings(BaseSettings):
     database_password: SecretStr
     database_sslmode: DatabaseSslMode = DatabaseSslMode.DISABLE
     identity_digest_key: SecretStr
+    frontend_origin: str = "http://127.0.0.1:5173"
 
     @field_validator("database_host")
     @classmethod
@@ -69,6 +71,23 @@ class Settings(BaseSettings):
             raise ValueError("identity digest key must contain at least 32 bytes")
         return value
 
+    @field_validator("frontend_origin")
+    @classmethod
+    def require_exact_frontend_origin(cls, value: str) -> str:
+        """Accept one exact HTTP(S) origin without credentials, path, query, or fragment."""
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("frontend origin must be one exact HTTP(S) origin")
+        return value.rstrip("/")
+
     @model_validator(mode="after")
     def reject_unsafe_production_settings(self) -> Self:
         """Reject debug and documentation surfaces in production."""
@@ -81,6 +100,11 @@ class Settings(BaseSettings):
             and self.database_sslmode is not DatabaseSslMode.VERIFY_FULL
         ):
             raise ValueError("database SSL mode must be verify-full in production")
+        if (
+            self.environment is RuntimeEnvironment.PRODUCTION
+            and not self.frontend_origin.startswith("https://")
+        ):
+            raise ValueError("frontend origin must use HTTPS in production")
         return self
 
     @property

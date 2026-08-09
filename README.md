@@ -2,7 +2,9 @@
 
 F2S is a mobile-first financial management and farm-investment platform for households, farms, microbusinesses, and small businesses. It helps workspace members record reliable financial data, understand crop performance, plan future seasons, and receive cautious AI-assisted explanations without allowing AI to become the source of truth for financial calculations.
 
-Phase 0 foundation work is complete. Phase 1 implementation has begun with the Identity and Workspace Access database foundation. Authentication workflows and finance, farming, reporting, AI, and offline features remain unimplemented.
+Phase 0 foundation work is complete. Phase 1 identity/workspace backend foundations and the
+React/TypeScript localization foundation are implemented. Authentication screens and finance,
+farming, reporting, AI, and offline features remain unimplemented.
 
 ## Product goals
 
@@ -177,6 +179,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Repository Governance](docs/project_management/Repository_Governance.md)
 - [Continuous Integration](docs/project_management/Continuous_Integration.md)
 - [Backend Setup and Boundaries](backend/README.md)
+- [Frontend Setup and Boundaries](frontend/README.md)
 
 ## Repository policies
 
@@ -190,9 +193,9 @@ Security vulnerabilities must not be disclosed in public issues or pull requests
 
 ## Current status and delivery rule
 
-Phase 0 repository and documentation foundations are complete. Issue #41 is the active
-documentation gate for Phase 1 workspace and identity work. Application implementation must
-not begin until its workspace, role, ownership, bootstrap, session, and module decisions are
-consistent across the authoritative documents.
+Phase 0 repository and documentation foundations are complete. Phase 1 work proceeds through
+the dependency-ordered GitHub issues. Accepted ADRs and focused design documents remain the
+authority for workspace, role, ownership, session, localization, accessibility, and module
+decisions.
 
 No real workspace, financial, or farming data, secrets, production credentials, or generated dependencies may be committed.

@@ -2,7 +2,9 @@
 
 ## 1. Purpose and scope
 
-Issue #19 established the repository validation baseline. Issue #20 adds real backend static and test jobs now that an executable backend skeleton and locked commands exist. CI still does not simulate frontend, database-schema, migration, deployment or unimplemented application behavior.
+Issue #19 established the repository validation baseline, Issue #20 added the backend gates,
+and Issue #55 adds the locked frontend gate. CI does not simulate deployment or unimplemented
+application behavior.
 
 The executable workflow is `.github/workflows/repository-validation.yml`. It runs for every pull request, every push to `main`, and manual dispatch. Workflow-level `contents: read` is the only `GITHUB_TOKEN` permission.
 
@@ -15,6 +17,7 @@ The executable workflow is `.github/workflows/repository-validation.yml`. It run
 | `Secret scan` | Scan complete Git history with Gitleaks without PR comments or uploaded findings | A detected credential pattern fails the check; findings must be handled privately |
 | `Backend static` | Synchronise the lock, check Ruff formatting/lint, and run strict mypy | Formatting, lint, dependency-lock or type violations fail the check |
 | `Backend tests` | Run configuration, factory, liveness and architecture tests | Any baseline backend test failure fails the check |
+| `Frontend validation` | Install the pnpm lock, check formatting/lint/types, run unit/accessibility tests, and build the production bundle | Any lock, static, test, runtime-config, accessibility-smoke, or build violation fails the check |
 
 Action dependencies are pinned to full commit SHAs. A dependency update must review the upstream release and diff, update the version comment and SHA together, and pass all three checks. Floating major, version or branch references are prohibited.
 
@@ -37,6 +40,14 @@ uv run --frozen ruff format --check .
 uv run --frozen ruff check .
 uv run --frozen mypy app tests
 uv run --frozen pytest
+Set-Location ../frontend
+pnpm install --frozen-lockfile --strict-peer-dependencies
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+$env:VITE_API_BASE_URL = 'https://api.example.invalid/api/v1'
+pnpm build
 ```
 
 The workflow-pinned `markdownlint-cli2-action` v24.2.0 packages the Markdown tool and `lychee-action` v2.9.0 packages Lychee v0.24.2. Local installations must use equivalent reviewed versions. Never paste a real secret into a negative test, terminal argument, workflow, issue, pull request or log.
@@ -51,7 +62,8 @@ After the workflow completes successfully on its first pull request:
 
 1. Open the repository ruleset or branch-protection settings for `main`.
 2. Require a pull request before merging and block force pushes and deletion.
-3. Require the exact checks `Markdown and links`, `Configuration and repository policy`, `Secret scan`, `Backend static`, and `Backend tests`.
+3. Require the exact checks `Markdown and links`, `Configuration and repository policy`,
+   `Secret scan`, `Backend static`, `Backend tests`, and `Frontend validation`.
 4. Require the branch to be current with `main` when that policy is operationally acceptable.
 5. Do not permit an administrator bypass as the normal merge path; emergency use requires documented review.
 
@@ -63,4 +75,5 @@ A skipped, missing, stale, timed-out or cancelled required check is not a passin
 - Treat a secret finding as a potential incident. Do not copy the value into an issue or pull request. Follow `SECURITY.md`, revoke/rotate when applicable, and clean history only through a separately reviewed procedure.
 - External link failures may be retried by the configured checker. A persistent failure requires repairing or replacing the authoritative link; exclusions require narrow documented justification.
 - If a pinned external Action is unavailable or compromised, fail closed and review a replacement. Do not switch to a floating tag.
-- Frontend and unimplemented backend feature checks remain `NOT APPLICABLE/NOT RUN` until their owning issues create real scaffolds and commands.
+- Unimplemented feature checks remain `NOT APPLICABLE/NOT RUN` until their owning issues create
+  real scaffolds and commands.

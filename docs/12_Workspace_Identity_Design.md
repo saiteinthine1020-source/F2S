@@ -286,6 +286,21 @@ Ownership transfer is not a role PATCH. It is a dedicated stateful operation:
 The transaction locks the workspace and affected memberships and asserts exactly one
 active Admin/owner before commit. A failed transfer preserves the original owner.
 
+The implemented Phase 1 transfer uses the owner's current Argon2id password and active opaque
+session as recent reauthentication. Its target proof expires after 30 minutes, is stored only
+as a purpose-separated keyed digest, is bound to one transfer and target membership, and is
+single-use under a row lock. Initiation, cancellation, expiry, confirmation, completion, and
+session revocation use bounded audit vocabulary; no submitted password or transfer value is
+accepted by the audit boundary.
+
+Completion demotes the former owner before promoting the target so PostgreSQL's immediate
+one-Active-Admin unique index is never violated; the deferred same-workspace owner foreign key
+permits the owner reference to be restored before commit. The workspace, transfer, and both
+memberships are locked, both parties' Active account-scoped sessions are revoked, and the two
+completion notifications are emitted as one required batch before commit. Any database,
+audit, or notification failure rolls back roles, owner reference, transfer state, and session
+revocations. Production fails closed until a durable notification adapter is configured.
+
 Owner recovery requires high-assurance proof and an audited support or recovery policy. It
 must never create a second owner as a shortcut.
 

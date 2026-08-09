@@ -210,10 +210,18 @@ Origin: http://127.0.0.1:5173
 Cookie: __Host-f2s_refresh=<refresh-value>
 X-CSRF-Token: <csrf-value>
 {}
+
+POST /api/v1/workspaces/00000000-0000-4000-8000-000000000101/ownership-transfers
+Origin: http://127.0.0.1:5173
+Authorization: Bearer <owner-access-value>
+{"target_membership_id":"00000000-0000-4000-8000-000000000202","former_owner_role":"CONTRIBUTOR","current_password":"<current-password>"}
 ```
 
-Do not paste a real activation value, password, database credential, or digest key into source,
-shell history, issue text, screenshots, logs, or documentation.
+Ownership initiation sends a 30-minute target confirmation value through the development
+outbox. Production rejects the workflow until a durable ownership-notification adapter is
+configured. Do not paste a real activation, recovery, ownership-transfer, access, refresh, or
+CSRF value, password, database credential, or digest key into source, shell history, issue
+text, screenshots, logs, or documentation.
 
 ## Validate
 
@@ -235,4 +243,5 @@ CI provisions a clean PostgreSQL 18 service and always runs clean/incremental mi
 downgrade, transaction rollback, identity cryptography/redaction, activation
 restart/expiry/replay/concurrency, authorization decision-table, two-workspace repository,
 same-workspace, login concealment, session rotation/concurrency/reuse, expiry, logout,
-cookie/Origin/CSRF, abuse-control, index, and relational-constraint tests.
+cookie/Origin/CSRF, ownership transfer atomicity/concurrency/rollback/replay, abuse-control,
+index, and relational-constraint tests.

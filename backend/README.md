@@ -19,6 +19,16 @@ Workspace Access owns the immutable `AuthorizationContext` and the Admin, Contri
 
 Identity Security uses locked `argon2-cffi` with the provisional Argon2id candidate from the security design: 65,536 KiB memory, three iterations, parallelism one, 32-byte output, and a random 16-byte salt. New passwords require 15 through 1,024 Unicode characters; the upper safety bound still permits the required 64-character minimum support. A compromised-password screen is injected through a port. Successful verification reports whether the encoded parameters need rehashing.
 
+Audit exposes a framework-free append-only writer contract and bounded Phase 1 action, result,
+resource, reason, source, and context enums. Its SQLAlchemy adapter uses the caller-supplied
+session, flushes required evidence, and never commits independently, so a consequential state
+change and its audit event succeed or roll back together. Global identity evidence is supported
+before workspace creation; workspace evidence validates workspace and membership references.
+Concealed cross-workspace denial evidence stores no probed workspace/resource ID. Correlation
+input is either a canonical UUID or a generated UUIDv4; invalid input receives a fresh safe
+correlation and is never echoed. See the
+[Audit Event Catalogue](../docs/22_Audit_Event_Catalogue.md).
+
 Opaque credentials use at least 32 random bytes. Persistence receives only an HMAC-SHA-256 digest whose input includes a fixed versioned domain and bounded purpose. The HMAC key is injected as redacted runtime key material and must contain at least 32 bytes; no example or fallback key exists in source. Activation/recovery callers use the provisional 24-hour lifetime constant. Verification always derives and compares the digest with `hmac.compare_digest` before returning bounded invalid, expired, consumed, or revoked results. Consumption verifies the presented value and purpose in the same helper; a later persistence service remains responsible for making database verification and consumption atomic.
 
 Rate-limit storage remains an injected adapter. The shared contracts accept only keyed subject digests and bounded scopes—never raw identifiers or account-existence flags. Fixed-window threshold and progressive login-delay policies are deterministic, while production distributed counters and final measured limits remain later work.

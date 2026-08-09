@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.infrastructure.database.repositories.bootstrap import SqlAlchemyBootstrapRepository
 from app.infrastructure.database.session import transactional_session
-from app.modules.bootstrap.service import BootstrapCommand, BootstrapService, WorkspaceType
+from app.modules.bootstrap.service import BootstrapCommand, BootstrapService
 from app.modules.identity_security import Argon2idPasswordService, SecretText
+from app.modules.workspace_access import WorkspaceType
 
 router = APIRouter(prefix="/api/v1/setup", tags=["setup"])
 

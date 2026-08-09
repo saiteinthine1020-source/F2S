@@ -11,6 +11,19 @@ from app.infrastructure.database.models.workspace_access import (
     WorkspaceMembership,
     WorkspaceModule,
 )
+from app.infrastructure.database.repositories.audit import SqlAlchemyAuditWriter
+from app.modules.audit import (
+    AuditAction,
+    AuditActor,
+    AuditContext,
+    AuditEventIntent,
+    AuditModule,
+    AuditReason,
+    AuditResourceType,
+    AuditResult,
+    AuditScope,
+    AuditSource,
+)
 from app.modules.workspace_access.authorization import (
     AuthorizationContext,
     AuthorizationDenied,
@@ -20,10 +33,13 @@ from app.modules.workspace_access.authorization import (
     require_capability,
 )
 from app.modules.workspace_access.repositories import (
+    DesiredWorkspaceSettings,
     WorkspaceAccessRepository,
     WorkspaceAdministration,
     WorkspaceModuleReference,
     WorkspaceReference,
+    WorkspaceSettingsSnapshot,
+    WorkspaceVersionMismatch,
 )
 
 
@@ -82,6 +98,7 @@ class SqlAlchemyWorkspaceAccessRepository(WorkspaceAccessRepository):
             Workspace.base_currency_code,
             Workspace.timezone,
             Workspace.preferred_language,
+            Workspace.version,
         ).where(Workspace.id == context.workspace_id)
         row = (await self._session.execute(statement)).one_or_none()
         if row is None:
@@ -93,6 +110,7 @@ class SqlAlchemyWorkspaceAccessRepository(WorkspaceAccessRepository):
             base_currency_code=row.base_currency_code,
             timezone=row.timezone,
             preferred_language=row.preferred_language,
+            version=row.version,
         )
 
     async def get_workspace_administration(
@@ -177,6 +195,139 @@ class SqlAlchemyWorkspaceAccessRepository(WorkspaceAccessRepository):
             module_code=row.module_code,
             enabled=row.enabled,
             version=row.version,
+        )
+
+    async def update_settings(
+        self,
+        context: AuthorizationContext,
+        *,
+        expected_version: int,
+        desired: DesiredWorkspaceSettings,
+    ) -> WorkspaceSettingsSnapshot:
+        await self._revalidate(context, Capability.MANAGE_WORKSPACE_SETTINGS)
+        workspace = await self._session.scalar(
+            select(Workspace)
+            .where(Workspace.id == context.workspace_id, Workspace.status == "ACTIVE")
+            .with_for_update()
+        )
+        if workspace is None:
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if workspace.version != expected_version:
+            await self._audit_settings(
+                context,
+                AuditAction.WORKSPACE_SETTINGS_UPDATED,
+                AuditResult.DENIED,
+                AuditReason.STALE_VERSION,
+            )
+            raise WorkspaceVersionMismatch
+
+        modules = list(
+            (
+                await self._session.scalars(
+                    select(WorkspaceModule)
+                    .where(WorkspaceModule.workspace_id == context.workspace_id)
+                    .order_by(WorkspaceModule.module_code)
+                    .with_for_update()
+                )
+            ).all()
+        )
+        desired_modules = {code.value: enabled for code, enabled in desired.modules}
+        if {module.module_code for module in modules} != set(desired_modules):
+            raise ValueError("INCOMPLETE_MODULE_CONFIGURATION")
+
+        renamed = workspace.name != desired.name
+        modules_changed = False
+        workspace.name = desired.name
+        workspace.type = desired.workspace_type.value
+        workspace.base_currency_code = desired.base_currency_code
+        workspace.timezone = desired.timezone
+        workspace.preferred_language = desired.preferred_language
+        workspace.description = desired.description
+        workspace.address = desired.address
+        workspace.business_category_code = desired.business_category_code
+        workspace.farm_type_code = desired.farm_type_code
+        workspace.version += 1
+        for module in modules:
+            enabled = desired_modules[module.module_code]
+            if module.enabled != enabled:
+                module.enabled = enabled
+                module.version += 1
+                modules_changed = True
+        await self._session.flush()
+        await self._audit_settings(
+            context,
+            AuditAction.WORKSPACE_SETTINGS_UPDATED,
+            AuditResult.SUCCEEDED,
+        )
+        if renamed:
+            await self._audit_settings(
+                context,
+                AuditAction.WORKSPACE_RENAMED,
+                AuditResult.SUCCEEDED,
+            )
+        if modules_changed:
+            await self._audit_settings(
+                context,
+                AuditAction.WORKSPACE_MODULES_UPDATED,
+                AuditResult.SUCCEEDED,
+            )
+        return self._snapshot(workspace, modules)
+
+    @staticmethod
+    def _snapshot(
+        workspace: Workspace, modules: list[WorkspaceModule]
+    ) -> WorkspaceSettingsSnapshot:
+        return WorkspaceSettingsSnapshot(
+            workspace=WorkspaceReference(
+                id=workspace.id,
+                name=workspace.name,
+                type_code=workspace.type,
+                base_currency_code=workspace.base_currency_code,
+                timezone=workspace.timezone,
+                preferred_language=workspace.preferred_language,
+                version=workspace.version,
+            ),
+            administration=WorkspaceAdministration(
+                id=workspace.id,
+                description=workspace.description,
+                address=workspace.address,
+                business_category_code=workspace.business_category_code,
+                farm_type_code=workspace.farm_type_code,
+                version=workspace.version,
+            ),
+            modules=tuple(
+                WorkspaceModuleReference(
+                    id=module.id,
+                    module_code=module.module_code,
+                    enabled=module.enabled,
+                    version=module.version,
+                )
+                for module in modules
+            ),
+        )
+
+    async def _audit_settings(
+        self,
+        context: AuthorizationContext,
+        action: AuditAction,
+        result: AuditResult,
+        reason: AuditReason | None = None,
+    ) -> None:
+        await SqlAlchemyAuditWriter(self._session).append(
+            AuditEventIntent(
+                scope=AuditScope.WORKSPACE,
+                workspace_id=context.workspace_id,
+                actor=AuditActor.user(context.actor_account_id, context.membership_id),
+                action=action,
+                module=AuditModule.WORKSPACE_ACCESS,
+                result=result,
+                correlation_id=context.correlation_id,
+                resource_type=AuditResourceType.WORKSPACE,
+                resource_id=(context.workspace_id if result is not AuditResult.DENIED else None),
+                reason=reason,
+                source=AuditSource.API,
+                context=AuditContext.WORKSPACE_SETTINGS,
+            )
         )
 
     async def _revalidate(self, context: AuthorizationContext, capability: Capability) -> None:

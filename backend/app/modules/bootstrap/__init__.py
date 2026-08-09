@@ -5,9 +5,8 @@ from app.modules.bootstrap.service import (
     BootstrapResult,
     BootstrapService,
     BootstrapUnavailable,
-    ModuleCode,
-    WorkspaceType,
 )
+from app.modules.workspace_access.configuration import ModuleCode, WorkspaceType
 
 __all__ = [
     "BootstrapCommand",

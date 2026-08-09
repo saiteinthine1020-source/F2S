@@ -1,12 +1,8 @@
 """Framework-free validation and orchestration for one-time bootstrap."""
 
-import re
-import unicodedata
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Final, Protocol
+from typing import Protocol
 from uuid import UUID
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.modules.identity_security import (
     Argon2idPasswordService,
@@ -14,35 +10,19 @@ from app.modules.identity_security import (
     SecretText,
     normalize_email,
 )
-
-_CURRENCY_PATTERN: Final = re.compile(r"^[A-Z]{3}$")
-SUPPORTED_LANGUAGES: Final = frozenset({"en", "ja", "my", "shn"})
-
-
-class WorkspaceType(StrEnum):
-    HOUSEHOLD = "HOUSEHOLD"
-    FARM = "FARM"
-    MICROBUSINESS = "MICROBUSINESS"
-    SMALL_BUSINESS = "SMALL_BUSINESS"
-    COMBINED = "COMBINED"
-    CUSTOM = "CUSTOM"
-
-
-class ModuleCode(StrEnum):
-    HOUSEHOLD_FINANCE = "HOUSEHOLD_FINANCE"
-    FARMING_INVESTMENTS = "FARMING_INVESTMENTS"
-
-
-MODULE_DEFAULTS: Final = {
-    WorkspaceType.HOUSEHOLD: frozenset({ModuleCode.HOUSEHOLD_FINANCE}),
-    WorkspaceType.FARM: frozenset({ModuleCode.HOUSEHOLD_FINANCE, ModuleCode.FARMING_INVESTMENTS}),
-    WorkspaceType.MICROBUSINESS: frozenset({ModuleCode.HOUSEHOLD_FINANCE}),
-    WorkspaceType.SMALL_BUSINESS: frozenset({ModuleCode.HOUSEHOLD_FINANCE}),
-    WorkspaceType.COMBINED: frozenset(
-        {ModuleCode.HOUSEHOLD_FINANCE, ModuleCode.FARMING_INVESTMENTS}
-    ),
-    WorkspaceType.CUSTOM: frozenset(),
-}
+from app.modules.workspace_access.configuration import (
+    MODULE_DEFAULTS,
+    bounded_text,
+    validate_currency,
+    validate_language,
+    validate_timezone,
+)
+from app.modules.workspace_access.configuration import (
+    ModuleCode as ModuleCode,
+)
+from app.modules.workspace_access.configuration import (
+    WorkspaceType as WorkspaceType,
+)
 
 
 class BootstrapUnavailable(Exception):
@@ -108,14 +88,14 @@ class BootstrapService:
 
     async def complete(self, command: BootstrapCommand) -> BootstrapResult:
         prepared = PreparedBootstrap(
-            display_name=_bounded_text(
+            display_name=bounded_text(
                 command.display_name, maximum=120, code="INVALID_DISPLAY_NAME"
             ),
             normalized_email=normalize_email(command.email),
             password_digest=self._password_service.hash(command.password),
             account_language=validate_language(command.account_language),
             account_timezone=validate_timezone(command.account_timezone),
-            workspace_name=_bounded_text(
+            workspace_name=bounded_text(
                 command.workspace_name, maximum=160, code="INVALID_WORKSPACE_NAME"
             ),
             workspace_type=command.workspace_type,
@@ -126,30 +106,3 @@ class BootstrapService:
             correlation_id=command.correlation_id,
         )
         return await self._repository.complete(prepared)
-
-
-def validate_currency(value: str) -> str:
-    if not _CURRENCY_PATTERN.fullmatch(value):
-        raise ValueError("INVALID_CURRENCY")
-    return value
-
-
-def validate_language(value: str) -> str:
-    if value not in SUPPORTED_LANGUAGES:
-        raise ValueError("INVALID_LANGUAGE")
-    return value
-
-
-def validate_timezone(value: str) -> str:
-    try:
-        ZoneInfo(value)
-    except (ZoneInfoNotFoundError, ValueError) as error:
-        raise ValueError("INVALID_TIMEZONE") from error
-    return value
-
-
-def _bounded_text(value: str, *, maximum: int, code: str) -> str:
-    normalized = unicodedata.normalize("NFKC", value).strip()
-    if not normalized or len(normalized) > maximum:
-        raise ValueError(code)
-    return normalized

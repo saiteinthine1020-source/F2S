@@ -93,16 +93,38 @@ operation so constructing or retaining a context object does not create authorit
 Every public protected repository method requires this context. Its SQL reads and mutations
 include the selected `workspace_id`; global protected find-by-ID methods and post-query
 workspace filtering are prohibited. Non-administrative workspace references deliberately
-exclude profile administration fields. The separate administration projection and module
-mutation require `MANAGE_WORKSPACE_SETTINGS`, so Contributor and Advisor call paths cannot
-request those fields or operations.
+exclude profile administration fields. The separate administration projection and workspace
+settings mutation require `MANAGE_WORKSPACE_SETTINGS`, so Contributor and Advisor call paths
+cannot request those fields or operations. The account-level eligible-workspace directory is
+a separate port because it runs before a selected-workspace authorization context exists; it
+returns only Active memberships for an Active account and Active workspace.
 
 Known role-capability denial uses the stable `PERMISSION_DENIED` code. Inactive account,
 workspace, and membership states have bounded status codes without protected payloads.
 Missing, foreign-workspace, fabricated, stale, or role-mismatched authority uses the same
 `RESOURCE_NOT_FOUND` outcome and produces no protected mutation. HTTP translation, session
-authentication, policy-required audit appends, and public Workspace APIs remain owned by
-later Phase 1 issues.
+authentication, and policy-required audit appends remain application-boundary responsibilities.
+
+### 4.2 Implemented workspace settings behavior
+
+Every Active member can retrieve the selected workspace's safe reference and complete
+explicit module flags. Only an Admin receives description, address, business category, or
+farm type and only an Admin can change settings. Profile codes are normalized and must be
+applicable to the chosen workspace type. Supported module codes are
+`HOUSEHOLD_FINANCE` and `FARMING_INVESTMENTS`; a complete configuration row exists for each.
+
+Workspace settings use the workspace row as the optimistic-concurrency aggregate. GET emits
+`ETag: "vN"`; PATCH requires the matching value, locks the workspace and module rows, and
+increments the aggregate version atomically. Missing, malformed, and stale preconditions
+have stable safe outcomes. Successful settings, rename, and module changes and denied stale
+or unauthorized attempts create bounded audit evidence without storing the submitted
+payload.
+
+Workspace type remains metadata plus creation defaults. A later type change preserves every
+explicit module override, the stable workspace ID, configuration rows, ownership,
+memberships, and historical records. Disabling a module changes availability only: it never
+deletes or rewrites protected data. Future module APIs must check the explicit enabled flag
+before exposing their protected routes or data.
 
 ## 5. Account and membership states
 
@@ -341,7 +363,9 @@ Phase 1 must prove:
 - suspended/revoked access invalidates sessions as designed;
 - activation, recovery, and transfer credentials expire, are single-use, and resist replay;
 - account-enumeration responses remain indistinguishable;
-- workspace rename preserves the stable ID and is audited; and
+- workspace rename preserves the stable ID and is audited;
+- stale workspace settings updates lose atomically, module disablement retains rows/history,
+  and non-Admins cannot read administration fields or mutate settings; and
 - role-specific UI behavior matches backend capabilities.
 
 ## 14. Phase 1 exclusions

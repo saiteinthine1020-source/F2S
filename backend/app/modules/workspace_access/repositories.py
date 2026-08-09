@@ -5,6 +5,11 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.workspace_access.authorization import AuthorizationContext
+from app.modules.workspace_access.configuration import ModuleCode, WorkspaceType
+
+
+class WorkspaceVersionMismatch(Exception):
+    """The supplied If-Match version no longer identifies current settings."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +22,7 @@ class WorkspaceReference:
     base_currency_code: str
     timezone: str
     preferred_language: str
+    version: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +45,40 @@ class WorkspaceModuleReference:
     module_code: str
     enabled: bool
     version: int
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceMembershipReference:
+    """One Active workspace available to the authenticated account."""
+
+    membership_id: UUID
+    role: str
+    workspace: WorkspaceReference
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceSettingsSnapshot:
+    """Complete Admin settings snapshot used for validated optimistic mutation."""
+
+    workspace: WorkspaceReference
+    administration: WorkspaceAdministration
+    modules: tuple[WorkspaceModuleReference, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DesiredWorkspaceSettings:
+    """Validated complete settings state; omitted-field merging happens in the service."""
+
+    name: str
+    workspace_type: WorkspaceType
+    base_currency_code: str
+    timezone: str
+    preferred_language: str
+    description: str | None
+    address: str | None
+    business_category_code: str | None
+    farm_type_code: str | None
+    modules: tuple[tuple[ModuleCode, bool], ...]
 
 
 class WorkspaceAccessRepository(Protocol):
@@ -71,3 +111,11 @@ class WorkspaceAccessRepository(Protocol):
     ) -> WorkspaceModuleReference:
         """Apply one capability-checked, workspace-scoped module mutation."""
         ...
+
+    async def update_settings(
+        self,
+        context: AuthorizationContext,
+        *,
+        expected_version: int,
+        desired: DesiredWorkspaceSettings,
+    ) -> WorkspaceSettingsSnapshot: ...

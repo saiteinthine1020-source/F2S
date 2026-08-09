@@ -31,7 +31,7 @@ def test_clean_upgrade_and_downgrade(database_settings: Settings) -> None:
         assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
 
         command.downgrade(configuration, "base")
-        assert inspect(engine).get_table_names() == []
+        assert set(inspect(engine).get_table_names()) == {"alembic_version"}
 
         command.upgrade(configuration, "head")
     finally:

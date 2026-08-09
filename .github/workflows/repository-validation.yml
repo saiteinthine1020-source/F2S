@@ -129,6 +129,7 @@ jobs:
       F2S_DATABASE_USER: f2s_test_owner
       F2S_DATABASE_PASSWORD: ci-validation-placeholder-not-a-secret
       F2S_DATABASE_SSLMODE: disable
+      F2S_IDENTITY_DIGEST_KEY: ci-identity-digest-placeholder-not-a-secret
       F2S_RUN_POSTGRES_TESTS: "1"
     steps:
       - name: Check out repository

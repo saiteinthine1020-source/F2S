@@ -9,11 +9,25 @@ from fastapi.exceptions import RequestValidationError
 from app.api.bootstrap import router as bootstrap_router
 from app.api.errors import correlation_for, safe_error
 from app.api.health import router as health_router
-from app.core.config import Settings
+from app.api.member_activation import router as member_activation_router
+from app.api.security import Unauthenticated
+from app.core.config import RuntimeEnvironment, Settings
 from app.infrastructure.database.session import create_database_engine, create_session_factory
 from app.modules.audit.correlation import CorrelationIdError, resolve_correlation_id
 from app.modules.bootstrap.service import BootstrapUnavailable
-from app.modules.identity_security import PasswordPolicyError
+from app.modules.identity_security import (
+    Argon2idPasswordService,
+    KeyedDigestService,
+    OpaqueCredentialService,
+    PasswordPolicyError,
+    SecretBytes,
+)
+from app.modules.member_activation import (
+    DevelopmentActivationOutbox,
+    DuplicateMembership,
+    RejectingActivationDelivery,
+)
+from app.modules.workspace_access import AuthorizationDenied, DenialCode
 
 APP_TITLE = "F2S API"
 APP_VERSION = "0.1.0"
@@ -42,8 +56,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     application.state.settings = effective_settings
+    digest_key = SecretBytes(
+        effective_settings.identity_digest_key.get_secret_value().encode("utf-8")
+    )
+    application.state.opaque_credentials = OpaqueCredentialService(KeyedDigestService(digest_key))
+    application.state.password_service = Argon2idPasswordService()
+    application.state.activation_delivery = (
+        RejectingActivationDelivery()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentActivationOutbox()
+    )
     application.include_router(health_router)
     application.include_router(bootstrap_router)
+    application.include_router(member_activation_router)
 
     @application.middleware("http")
     async def correlation_middleware(
@@ -81,6 +106,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code=409,
             code="CONFLICT",
             message="Bootstrap is unavailable.",
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(Unauthenticated)
+    async def unauthenticated(request: Request, error: Unauthenticated) -> Response:
+        del error
+        return safe_error(
+            status_code=401,
+            code="UNAUTHENTICATED",
+            message="Authentication is required.",
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(AuthorizationDenied)
+    async def authorization_denied(request: Request, error: AuthorizationDenied) -> Response:
+        not_found = error.code is DenialCode.RESOURCE_NOT_FOUND
+        return safe_error(
+            status_code=404 if not_found else 403,
+            code="RESOURCE_NOT_FOUND" if not_found else "PERMISSION_DENIED",
+            message=(
+                "The requested resource was not found."
+                if not_found
+                else "The operation is not permitted."
+            ),
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(DuplicateMembership)
+    async def duplicate_membership(request: Request, error: DuplicateMembership) -> Response:
+        del error
+        return safe_error(
+            status_code=409,
+            code="DUPLICATE_RESOURCE",
+            message="The member already belongs to this workspace.",
             correlation_id=correlation_for(request),
         )
 

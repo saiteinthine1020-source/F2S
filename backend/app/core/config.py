@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     database_user: str = Field(min_length=1, max_length=63, pattern=r"^[a-zA-Z][a-zA-Z0-9_]*$")
     database_password: SecretStr
     database_sslmode: DatabaseSslMode = DatabaseSslMode.DISABLE
+    identity_digest_key: SecretStr
 
     @field_validator("database_host")
     @classmethod
@@ -58,6 +59,14 @@ class Settings(BaseSettings):
         """Require an explicit non-empty database credential."""
         if not value.get_secret_value():
             raise ValueError("database password must not be empty")
+        return value
+
+    @field_validator("identity_digest_key")
+    @classmethod
+    def require_strong_identity_digest_key(cls, value: SecretStr) -> SecretStr:
+        """Require sufficient HMAC key material without exposing it."""
+        if len(value.get_secret_value().encode("utf-8")) < 32:
+            raise ValueError("identity digest key must contain at least 32 bytes")
         return value
 
     @model_validator(mode="after")

@@ -1,6 +1,10 @@
 # F2S Backend
 
-This directory contains the FastAPI modular-monolith foundation and the first two PostgreSQL persistence slices. It defines identity/workspace foundations, digest-only security and audit records, the Workspace Access authorization/repository boundary, and shared identity cryptography and abuse-control primitives. Authentication workflows and endpoints, delivery, session rotation behavior, transfer behavior, finance, farming, and background jobs remain out of scope.
+This directory contains the FastAPI modular-monolith foundation and the first PostgreSQL
+identity/workspace slices. It includes one-time bootstrap, Admin-controlled Contributor and
+Advisor provisioning, single-use account activation, digest-only security and audit records,
+and workspace-scoped authorization. Login/session workflows, production activation delivery,
+ownership transfer, finance, farming, and background jobs remain out of scope.
 
 ## Boundaries
 
@@ -38,7 +42,32 @@ Operators must follow the
 [Bootstrap Operator Procedure](../docs/23_Bootstrap_Operator_Procedure.md); there are no default
 credentials or ordinary reset path.
 
-Opaque credentials use at least 32 random bytes. Persistence receives only an HMAC-SHA-256 digest whose input includes a fixed versioned domain and bounded purpose. The HMAC key is injected as redacted runtime key material and must contain at least 32 bytes; no example or fallback key exists in source. Activation/recovery callers use the provisional 24-hour lifetime constant. Verification always derives and compares the digest with `hmac.compare_digest` before returning bounded invalid, expired, consumed, or revoked results. Consumption verifies the presented value and purpose in the same helper; a later persistence service remains responsible for making database verification and consumption atomic.
+Opaque credentials use at least 32 random bytes. Persistence receives only an HMAC-SHA-256
+digest whose input includes a fixed versioned domain and bounded purpose. The HMAC key is
+injected as redacted runtime key material and must contain at least 32 bytes; no example or
+fallback key exists in source. Activation challenges expire after 24 hours. PostgreSQL locks
+the matched challenge, membership, and account while it verifies and consumes the challenge,
+so only one activation can succeed. Restart revokes every earlier Issued challenge and keeps
+the rows as historical evidence. Invalid, expired, replayed, and revoked values return the
+same concealed activation failure and write bounded denial evidence.
+
+Member provisioning is available only to an authenticated Active Admin at
+`POST /api/v1/workspaces/{workspace_id}/members`; the only accepted roles are Contributor and
+Advisor. It creates a Pending membership and either a new Pending Activation account or a
+membership for an existing eligible account without revealing which occurred. Activation
+restart is available at
+`POST /api/v1/workspaces/{workspace_id}/members/{membership_id}/activation/restart`.
+`POST /api/v1/auth/activate` accepts the one-time activation value and, for a new account, its
+first password. There is no public registration endpoint and member responses contain no
+global account identifier.
+
+Local and test environments use a process-local development activation outbox. It captures
+the clear activation value once for a developer/test delivery boundary; `drain()` removes the
+captured values. It is neither durable nor an email service and must never be enabled in
+production. Production deliberately rejects provisioning/restart until a durable delivery
+adapter is configured, causing the database transaction to roll back instead of creating an
+undeliverable membership. Logs, API responses, database fields, and examples must use
+placeholders, never a captured value.
 
 Rate-limit storage remains an injected adapter. The shared contracts accept only keyed subject digests and bounded scopes—never raw identifiers or account-existence flags. Fixed-window threshold and progressive login-delay policies are deterministic, while production distributed counters and final measured limits remain later work.
 
@@ -68,6 +97,7 @@ No `.env` file is loaded automatically by the application. Settings use explicit
 | `F2S_DATABASE_USER` | none | Required PostgreSQL identifier |
 | `F2S_DATABASE_PASSWORD` | none | Required secret; redacted by settings and URL representations |
 | `F2S_DATABASE_SSLMODE` | `disable` | Production requires `verify-full`; disable is local/test only |
+| `F2S_IDENTITY_DIGEST_KEY` | none | Required secret with at least 32 UTF-8 bytes; use random environment-specific material |
 
 Unknown settings passed to the settings model and unsupported values fail validation. A raw database URL is deliberately unsupported so reserved characters are encoded safely and the password is not copied into logs.
 
@@ -85,13 +115,26 @@ uv run --frozen alembic upgrade head
 
 The migration chain supports both a clean database and an incremental upgrade from revision `20260809_0001`. Downgrade is intended for development/review while the new security tables are empty; production rollback requires the reviewed backup and migration procedure.
 
-The only implemented behavior is the operational liveness endpoint:
+The operational liveness endpoint is:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health/live
 ```
 
 It returns only `{"status":"ok"}`. It does not claim database or external-provider readiness and exposes no configuration, version, hostname, dependency or workspace data.
+
+Safe placeholder requests (authentication is intentionally unavailable until Issue #50):
+
+```text
+POST /api/v1/workspaces/00000000-0000-4000-8000-000000000101/members
+{"email":"member@example.invalid","display_name":"Example Member","role":"CONTRIBUTOR","preferred_language":"en","timezone":"UTC"}
+
+POST /api/v1/auth/activate
+{"value":"<activation-value-from-development-delivery>","password":"<new-password>"}
+```
+
+Do not paste a real activation value, password, database credential, or digest key into source,
+shell history, issue text, screenshots, logs, or documentation.
 
 ## Validate
 
@@ -109,4 +152,7 @@ $env:F2S_RUN_POSTGRES_TESTS = "1"
 uv run --frozen pytest
 ```
 
-CI provisions a clean PostgreSQL 18 service and always runs clean/incremental migration, downgrade, transaction rollback, identity cryptography/redaction, digest/expiry/lifecycle, authorization decision-table, two-workspace repository, same-workspace, index, and relational-constraint tests.
+CI provisions a clean PostgreSQL 18 service and always runs clean/incremental migration,
+downgrade, transaction rollback, identity cryptography/redaction, activation
+restart/expiry/replay/concurrency, authorization decision-table, two-workspace repository,
+same-workspace, index, and relational-constraint tests.

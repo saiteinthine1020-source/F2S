@@ -23,6 +23,7 @@ from app.modules.identity_security.credentials import (
     OpaqueCredentialService,
     StoredOpaqueCredential,
 )
+from app.modules.identity_security.identifiers import normalize_email
 from app.modules.identity_security.passwords import (
     Argon2idParameters,
     Argon2idPasswordService,
@@ -68,4 +69,5 @@ __all__ = [
     "SecretBytes",
     "SecretText",
     "StoredOpaqueCredential",
+    "normalize_email",
 ]

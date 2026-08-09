@@ -68,6 +68,18 @@ Password, raw token, secret, API key, authorisation header, and production crede
 
 States: account `PENDING_ACTIVATION`, `ACTIVE`, `SUSPENDED`, `LOCKED`, `CLOSED`; membership `PENDING`, `ACTIVE`, `SUSPENDED`, `REVOKED`; workspace `ACTIVE`, `SUSPENDED`, `ARCHIVED`.
 
+### 4.1 Identity security and audit field contract
+
+| Entity | Key persisted fields and lifecycle | Classification and channel rule |
+| --- | --- | --- |
+| `auth_sessions` | Account, family/rotation IDs, separate access/refresh/CSRF digests, issue/access/idle/absolute times, use/rotate/revoke/reuse evidence; `ACTIVE/ROTATED/REVOKED/EXPIRED/REUSE_DETECTED` | Digests are Restricted; raw credentials are prohibited from database, logs, exports, AI, and URLs |
+| `activation_challenges` | Workspace+membership+account identity, challenge digest, issue/expiry/use/revoke evidence; `ISSUED/USED/REVOKED/EXPIRED` | Restricted and purpose-limited; restart revokes earlier rows; raw challenge prohibited |
+| `recovery_challenges` | Account, challenge digest, bounded attempt count, issue/expiry/use/revoke evidence; `ISSUED/USED/REVOKED/EXPIRED` | Restricted and concealed; raw challenge and submitted identifier are not audit metadata |
+| `ownership_transfers` | Workspace, current/target memberships, target-confirmation digest, former-owner destination role, lifecycle times/reason; `INITIATED/CONFIRMED/CANCELLED/EXPIRED/COMPLETED` | Restricted digest plus Confidential workflow metadata; both memberships must match workspace |
+| `audit_events` | Global/workspace scope, actor references, action/module/resource/result/reason/source/context codes, correlation and occurrence time | Append-only safe evidence; no secret, full payload, free text, raw before/after record, payment detail, or unmasked AI content |
+
+`digest_algorithm_code` is initially `SHA256` and exists for representation/version clarity; it does not make a digest a reusable credential. Audit `source_code` and `context_code` are allowlisted machine codes, not user text or a general metadata container. Mutable security lifecycle rows use positive optimistic-lock versions. Audit events are immutable and therefore have no update/version fields.
+
 ## 5. Finance terms
 
 | Term | Definition | Key rule |

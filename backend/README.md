@@ -1,6 +1,6 @@
 # F2S Backend
 
-This directory contains the FastAPI modular-monolith foundation and the first PostgreSQL persistence slice from Issue #43. It defines only installation bootstrap state, user accounts, workspaces, memberships, and workspace module configuration. Login/session workflows, credentials, recovery, finance, farming, and background jobs remain out of scope.
+This directory contains the FastAPI modular-monolith foundation and the first two PostgreSQL persistence slices. It defines identity/workspace foundations plus digest-only session, activation, recovery, ownership-transfer, and audit records. Authentication workflows and endpoints, password hashing, transfer behavior, finance, farming, and background jobs remain out of scope.
 
 ## Boundaries
 
@@ -56,6 +56,8 @@ Apply the reviewed schema before running persistence-backed behavior:
 uv run --frozen alembic upgrade head
 ```
 
+The migration chain supports both a clean database and an incremental upgrade from revision `20260809_0001`. Downgrade is intended for development/review while the new security tables are empty; production rollback requires the reviewed backup and migration procedure.
+
 The only implemented behavior is the operational liveness endpoint:
 
 ```powershell
@@ -80,4 +82,4 @@ $env:F2S_RUN_POSTGRES_TESTS = "1"
 uv run --frozen pytest
 ```
 
-CI provisions a clean PostgreSQL 18 service and always runs migration, downgrade, transaction rollback, and relational-constraint tests.
+CI provisions a clean PostgreSQL 18 service and always runs clean/incremental migration, downgrade, transaction rollback, digest/expiry/lifecycle, same-workspace, index, and relational-constraint tests.

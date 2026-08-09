@@ -118,18 +118,20 @@ erDiagram
 | `workspaces` / Workspace Access | Stable tenant boundary; name, type, base currency, timezone, language, optional profile, owner membership reference, status/version | Type is `HOUSEHOLD/FARM/MICROBUSINESS/SMALL_BUSINESS/COMBINED/CUSTOM`; same-workspace owner FK; exactly one Active Admin owner |
 | `workspace_memberships` / Workspace Access | Account-workspace role and lifecycle | Unique `(workspace_id,user_account_id)`; roles `ADMIN/CONTRIBUTOR/ADVISOR`; states `PENDING/ACTIVE/SUSPENDED/REVOKED`; no second Admin in MVP; historical actors retained |
 | `workspace_modules` / Workspace Access | Explicit validated enabled-module configuration | Unique workspace/module code; Admin-only and audited; type supplies defaults but is not authoritative after configuration |
-
-### 5.1 Implemented foundation (Issue #43)
-
-The first reviewed Alembic revision creates only `bootstrap_state`, `user_accounts`, `workspaces`, `workspace_memberships`, and `workspace_modules`. Identity credentials, sessions, challenges, ownership transfers, audit events, and all business-module tables remain later work.
-
-The physical owner reference uses a deferred composite foreign key from the workspace ID, owner membership ID, constant `ADMIN` role, and constant `ACTIVE` membership status to the matching membership row. This permits atomic creation with pre-generated UUIDs while rejecting a cross-workspace, inactive, or non-Admin owner at commit. A partial unique index permits at most one Active Admin membership per workspace. The bootstrap service remains responsible for creating the workspace and owner membership in one transaction.
 | `ownership_transfers` / Workspace Access | Dedicated current-owner/target confirmation lifecycle | Same-workspace memberships; digest-stored challenge; initiated/confirmed/cancelled/expired/completed; completion locks and moves owner atomically |
 | `farm_locations` / Workspace Access | Workspace farm/location reference | Workspace-normalized active name/code uniqueness; archivable; historical references remain |
 | `finance_categories` / Finance | Workspace finance classification | Workspace-normalized active uniqueness; archivable; same-workspace references |
 | `crop_categories` / Farming | Reusable crop classification | Workspace-normalized active uniqueness; category action never creates project; archivable |
 
 Password hashes/recovery material are purpose-specific security records finalized by Issue #11; raw credentials/tokens never persist.
+
+### 6.1 Implemented Phase 1 schema revisions
+
+Revision `20260809_0001` creates `bootstrap_state`, `user_accounts`, `workspaces`, `workspace_memberships`, and `workspace_modules`. The physical owner reference uses a deferred composite foreign key from the workspace ID, owner membership ID, constant `ADMIN` role, and constant `ACTIVE` membership status to the matching membership row. This permits atomic creation with pre-generated UUIDs while rejecting a cross-workspace, inactive, or non-Admin owner at commit. A partial unique index permits at most one Active Admin membership per workspace.
+
+Revision `20260809_0002` adds `auth_sessions`, `activation_challenges`, `recovery_challenges`, `ownership_transfers`, and `audit_events`. Bearer and confirmation values exist only as purpose-separated digests. Rotation generations share a session family and retain single-child lineage for reuse detection. Activation binds the workspace, membership, and account through one composite foreign key. Both transfer memberships are constrained to the transfer workspace. Audit stores explicit bounded codes and references rather than an unvalidated metadata payload; global identity events have no workspace, while workspace events require one.
+
+The application services remain responsible for atomic rotation, lifecycle transitions, transfer locking/completion, append-only audit writes, retention, and authorization. These behaviors are not implied merely by the schema.
 
 ## 7. Canonical finance model
 

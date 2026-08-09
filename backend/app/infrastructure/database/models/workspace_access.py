@@ -94,6 +94,12 @@ class WorkspaceMembership(Base):
         UniqueConstraint("workspace_id", "user_account_id", name="uq_membership_workspace_user"),
         UniqueConstraint("workspace_id", "id", name="uq_membership_workspace_id"),
         UniqueConstraint(
+            "workspace_id",
+            "id",
+            "user_account_id",
+            name="uq_membership_activation_reference",
+        ),
+        UniqueConstraint(
             "workspace_id", "id", "role", "status", name="uq_membership_owner_reference"
         ),
         Index("ix_membership_workspace_status", "workspace_id", "status"),
@@ -147,6 +153,90 @@ class WorkspaceModule(Base):
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.current_timestamp()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
+    )
+    version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default="1")
+
+
+class OwnershipTransfer(Base):
+    """Dedicated same-workspace owner-to-target confirmation lifecycle."""
+
+    __tablename__ = "ownership_transfers"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('INITIATED', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'COMPLETED')",
+            name="valid_status",
+        ),
+        CheckConstraint("digest_algorithm_code = 'SHA256'", name="valid_digest_algorithm"),
+        CheckConstraint(
+            "former_owner_role_code IN ('CONTRIBUTOR', 'ADVISOR')",
+            name="valid_former_owner_role",
+        ),
+        CheckConstraint(
+            "current_owner_membership_id <> target_membership_id",
+            name="distinct_transfer_memberships",
+        ),
+        CheckConstraint("expires_at > initiated_at", name="expiry_after_initiation"),
+        CheckConstraint(
+            "(status IN ('CONFIRMED', 'COMPLETED')) = (confirmed_at IS NOT NULL)",
+            name="confirmation_evidence",
+        ),
+        CheckConstraint(
+            "(status = 'CANCELLED') = (cancelled_at IS NOT NULL AND reason_code IS NOT NULL)",
+            name="cancellation_evidence",
+        ),
+        CheckConstraint("(status = 'EXPIRED') = (expired_at IS NOT NULL)", name="expiry_evidence"),
+        CheckConstraint(
+            "(status = 'COMPLETED') = (completed_at IS NOT NULL)", name="completion_evidence"
+        ),
+        CheckConstraint("version > 0", name="positive_version"),
+        ForeignKeyConstraint(
+            ["workspace_id", "current_owner_membership_id"],
+            ["workspace_memberships.workspace_id", "workspace_memberships.id"],
+            name="fk_transfer_current_owner_membership",
+        ),
+        ForeignKeyConstraint(
+            ["workspace_id", "target_membership_id"],
+            ["workspace_memberships.workspace_id", "workspace_memberships.id"],
+            name="fk_transfer_target_membership",
+        ),
+        Index("ix_transfer_workspace_status", "workspace_id", "status"),
+        Index("ix_transfer_target_status", "target_membership_id", "status"),
+        Index("ix_transfer_expiry", "expires_at", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False
+    )
+    current_owner_membership_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), nullable=False
+    )
+    target_membership_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
+    target_confirmation_digest: Mapped[str] = mapped_column(
+        String(128), nullable=False, unique=True
+    )
+    digest_algorithm_code: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="SHA256", server_default="SHA256"
+    )
+    former_owner_role_code: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    initiated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.current_timestamp()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason_code: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.current_timestamp()
     )

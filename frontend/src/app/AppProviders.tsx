@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren, useMemo, useState } from "react";
 
 import { createApiClient } from "../api/client";
+import { AuthProvider } from "../auth/AuthProvider";
 import type { RuntimeConfig } from "../config/runtime";
 import { ApiClientContext } from "./ApiClientContext";
 
@@ -27,7 +28,9 @@ export function AppProviders({ children, config }: AppProvidersProps) {
 
   return (
     <ApiClientContext.Provider value={apiClient}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>{children}</AuthProvider>
+      </QueryClientProvider>
     </ApiClientContext.Provider>
   );
 }

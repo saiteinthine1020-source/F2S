@@ -3,8 +3,8 @@
 ## 1. Purpose and scope
 
 Issue #19 established the repository validation baseline, Issue #20 added the backend gates,
-and Issue #55 adds the locked frontend gate. CI does not simulate deployment or unimplemented
-application behavior.
+Issue #55 added the locked frontend gate, and Issue #56 adds Chromium critical authentication
+flows to that gate. CI does not simulate deployment or unimplemented application behavior.
 
 The executable workflow is `.github/workflows/repository-validation.yml`. It runs for every pull request, every push to `main`, and manual dispatch. Workflow-level `contents: read` is the only `GITHUB_TOKEN` permission.
 
@@ -17,7 +17,7 @@ The executable workflow is `.github/workflows/repository-validation.yml`. It run
 | `Secret scan` | Scan complete Git history with Gitleaks without PR comments or uploaded findings | A detected credential pattern fails the check; findings must be handled privately |
 | `Backend static` | Synchronise the lock, check Ruff formatting/lint, and run strict mypy | Formatting, lint, dependency-lock or type violations fail the check |
 | `Backend tests` | Run configuration, factory, liveness and architecture tests | Any baseline backend test failure fails the check |
-| `Frontend validation` | Install the pnpm lock, check formatting/lint/types, run unit/accessibility tests, and build the production bundle | Any lock, static, test, runtime-config, accessibility-smoke, or build violation fails the check |
+| `Frontend validation` | Install the pnpm lock, check formatting/lint/types, run unit/accessibility and Chromium critical-flow tests, and build the production bundle | Any lock, static, test, runtime-config, accessibility-smoke, browser-flow, or build violation fails the check |
 
 Action dependencies are pinned to full commit SHAs. A dependency update must review the upstream release and diff, update the version comment and SHA together, and pass all three checks. Floating major, version or branch references are prohibited.
 
@@ -46,6 +46,8 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm exec playwright install chromium
+pnpm test:e2e
 $env:VITE_API_BASE_URL = 'https://api.example.invalid/api/v1'
 pnpm build
 ```

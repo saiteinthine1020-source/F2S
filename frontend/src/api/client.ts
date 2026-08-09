@@ -14,25 +14,45 @@ export class ApiError extends Error {
 }
 
 export interface ApiClient {
-  setAccessCredential(value: string | null): void;
-  request<T>(path: string, init?: RequestInit): Promise<T>;
+  setSessionCredentials(value: SessionCredentials | null): void;
+  setUnauthorizedHandler(handler: (() => void) | null): void;
+  request<T>(path: string, init?: RequestInit, security?: RequestSecurity): Promise<T>;
+}
+
+export interface SessionCredentials {
+  readonly accessToken: string;
+  readonly csrfToken: string;
+}
+
+export interface RequestSecurity {
+  readonly authorization?: "include" | "omit";
+  readonly csrf?: boolean;
 }
 
 export function createApiClient(
   config: RuntimeConfig,
   fetchImplementation: typeof fetch = fetch,
 ): ApiClient {
-  let accessCredential: string | null = null;
+  let credentials: SessionCredentials | null = null;
+  let unauthorizedHandler: (() => void) | null = null;
 
   return Object.freeze({
-    setAccessCredential(value: string | null): void {
-      if (value !== null && (value.length < 32 || value.length > 512)) {
-        throw new TypeError("ACCESS_CREDENTIAL_INVALID");
+    setSessionCredentials(value: SessionCredentials | null): void {
+      if (value !== null && (!isCredential(value.accessToken) || !isCredential(value.csrfToken))) {
+        throw new TypeError("SESSION_CREDENTIALS_INVALID");
       }
-      accessCredential = value;
+      credentials = value;
     },
 
-    async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    setUnauthorizedHandler(handler: (() => void) | null): void {
+      unauthorizedHandler = handler;
+    },
+
+    async request<T>(
+      path: string,
+      init: RequestInit = {},
+      security: RequestSecurity = {},
+    ): Promise<T> {
       if (!path.startsWith("/") || path.startsWith("//")) {
         throw new TypeError("API_PATH_INVALID");
       }
@@ -41,8 +61,14 @@ export function createApiClient(
       if (init.body !== undefined && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
       }
-      if (accessCredential !== null) {
-        headers.set("Authorization", `Bearer ${accessCredential}`);
+      if (security.authorization !== "omit" && credentials !== null) {
+        headers.set("Authorization", `Bearer ${credentials.accessToken}`);
+      }
+      if (security.csrf === true) {
+        if (credentials === null) {
+          throw new TypeError("CSRF_CREDENTIAL_UNAVAILABLE");
+        }
+        headers.set("X-CSRF-Token", credentials.csrfToken);
       }
 
       const response = await fetchImplementation(`${config.apiBaseUrl}${path}`, {
@@ -52,6 +78,9 @@ export function createApiClient(
       });
       if (!response.ok) {
         const code = await safeErrorCode(response);
+        if (response.status === 401 && security.authorization !== "omit" && credentials !== null) {
+          unauthorizedHandler?.();
+        }
         throw new ApiError(response.status, code, response.headers.get("X-Correlation-ID"));
       }
       if (response.status === 204) {
@@ -60,6 +89,10 @@ export function createApiClient(
       return (await response.json()) as T;
     },
   });
+}
+
+function isCredential(value: string): boolean {
+  return value.length >= 32 && value.length <= 512;
 }
 
 async function safeErrorCode(response: Response): Promise<string> {

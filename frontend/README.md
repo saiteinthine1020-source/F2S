@@ -1,10 +1,10 @@
 # F2S frontend
 
-This directory contains the Phase 1 React and TypeScript application foundation. It provides
-the build, routing, runtime-configuration, API, localization, error-boundary, responsive shell,
-accessible state-component, and test boundaries needed by later authentication and workspace
-issues. It intentionally contains no authentication behavior, workspace/member screen,
-financial feature, service worker, offline queue, or sample business data.
+This directory contains the Phase 1 React and TypeScript application. It provides the build,
+routing, runtime configuration, API, localization, authentication, protected workspace shell,
+accessible state components, and test boundaries needed by later workspace-administration and
+business issues. It intentionally contains no member-management form, financial feature,
+service worker, offline queue, or sample business data.
 
 ## Prerequisites
 
@@ -42,9 +42,36 @@ pnpm dev
 ```
 
 The development app defaults to Vite's loopback URL. The API client uses
-`credentials: "include"` for the server's secure cookie contract and keeps a short-lived access
-credential only in a module closure. It does not use browser persistent storage. Authentication
-and credential lifecycle behavior belongs to Issue #56.
+`credentials: "include"` for the server's secure cookie contract and keeps short-lived access
+and synchronizer-CSRF values only in a module closure. It does not use browser persistent
+storage.
+
+## Authentication and protected routing
+
+The client implements one-time bootstrap, activation, login, concealed recovery, password
+change, logout, workspace selection, and role-aware navigation. The protected route boundary
+renders no workspace directory, workspace name, role, navigation, or page content until the
+server has accepted the access credential and selected-workspace request.
+
+Login returns an opaque access value and synchronizer-CSRF value to browser memory while the
+opaque refresh value remains in the `Secure`, `HttpOnly`, `SameSite=Strict` cookie. The client:
+
+- attaches the access value only to protected requests;
+- attaches CSRF only to refresh and logout requests that explicitly require it;
+- schedules one refresh before access expiry and never starts parallel refreshes;
+- clears credentials, TanStack Query state, and selected workspace before logout, expiry,
+  revocation, unsafe refresh failure, or workspace switching; and
+- treats role-specific navigation as clarity only, never authorization.
+
+A full reload destroys both readable credentials. The current backend has no approved
+same-origin, non-mutating CSRF-bootstrap endpoint, so the client fails safely to sign-in rather
+than rotating the HttpOnly cookie without its session-bound synchronizer value. If that API is
+added later, it must remain `no-store`, return no protected workspace data, and preserve the
+single-flight zero-grace refresh rule.
+
+Public activation/recovery evidence is entered in password-style fields and is never read from
+the URL. Recovery request and proof failures use generic translated copy that does not disclose
+whether an account, owner, challenge, or foreign workspace exists.
 
 ## Localization
 
@@ -67,14 +94,17 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm exec playwright install chromium
+pnpm test:e2e
 pnpm build
 ```
 
 The current tests cover runtime configuration, English fallback and missing keys, browser
-persistent-storage exclusion, secure-cookie and memory-only API credentials, safe API errors,
-routing, translated loading/error/not-found states, semantic landmarks, keyboard skip access,
-and automated axe smoke checks. Automated scanning supplements rather than replaces later
-keyboard, screen-reader, zoom, touch, contrast, Shan linguistic, and reference-device review.
+persistent-storage exclusion, secure-cookie and memory-only API/CSRF credentials, public and
+protected routing, role navigation, expiry/revocation, failed logout, workspace switching,
+concealed recovery, translated states, semantic landmarks, keyboard skip access, automated axe
+smoke checks, and Chromium critical flows. Automated scanning supplements rather than replaces
+screen-reader, zoom, touch, contrast, Shan linguistic, and reference-device review.
 
 ## Foundation structure
 
@@ -82,12 +112,14 @@ keyboard, screen-reader, zoom, touch, contrast, Shan linguistic, and reference-d
 src/
 |-- api/          memory-only credential and safe fetch boundary
 |-- app/          providers, router, and translated error boundary
-|-- components/   responsive shell and honest standard states
+|-- auth/         in-memory session lifecycle and public/protected route guards
+|-- components/   responsive forms, shells, and honest standard states
 |-- config/       fail-closed public runtime configuration
 |-- i18n/         locale registry and translation resources
-|-- pages/        foundation and safe not-found routes only
+|-- pages/        authentication, workspace-selection, protected, and safe fallback routes
 `-- styles/       accessible tokens and mobile-first global styles
 ```
 
-Backend authorization remains authoritative. A later UI may hide unavailable actions for
-clarity, but it must never treat visibility, route presence, or client state as permission.
+Backend authorization remains authoritative. The UI hides unavailable navigation for clarity,
+but never treats visibility, route presence, selected-workspace state, or client role as
+permission.

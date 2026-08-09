@@ -186,6 +186,31 @@ If a temporary-password fallback is later enabled, the password is system-genera
 shown once, hashed immediately, expiring, single-use, and forces password replacement
 before any workspace access. An Admin cannot choose, retrieve, or redisplay it.
 
+### 6.1 Implemented membership administration behavior
+
+The Admin-only member list returns the membership ID and version plus the associated email,
+display name, bounded account/membership states, language, timezone, creation time, and safe
+last-login time. It omits global account and session identifiers and every credential field.
+All queries carry the selected workspace ID; a foreign membership is indistinguishable from
+an absent one.
+
+Generic mutations use the membership row as the optimistic-concurrency aggregate. A current
+ETag is required and the row is locked before comparison. Contributor and Advisor may change
+between those roles while Pending, Active, or Suspended. Only Active may become Suspended;
+only Suspended may become Active and only while the associated account is Active. Pending,
+Active, or Suspended may become Revoked. Revoked is terminal and all membership, activation,
+and historical actor rows are retained. Activation restart is versioned, increments the
+membership aggregate, and atomically replaces all earlier Issued challenges.
+
+The owner membership and every Admin role are rejected by generic role, suspension,
+reactivation, restart, and revocation paths. They can change only through the dedicated
+ownership-transfer workflow. Role change, suspension, and revocation revoke all Active
+sessions for the affected account. Phase 1 sessions are account-scoped, so this conservative
+policy may require reauthentication in another workspace; current membership state and role
+are additionally revalidated on every protected request. Every successful or denied
+lifecycle decision writes bounded audit evidence, and stale/foreign operations make no
+protected lifecycle change.
+
 ## 7. Authentication and sessions
 
 Passwords follow `docs/15_Security_Design.md`: Argon2id, minimum length and compromised-
@@ -366,6 +391,8 @@ Phase 1 must prove:
 - workspace rename preserves the stable ID and is audited;
 - stale workspace settings updates lose atomically, module disablement retains rows/history,
   and non-Admins cannot read administration fields or mutate settings; and
+- membership transitions follow the versioned matrix, retain revoked history, invalidate
+  affected sessions, conceal foreign IDs, and cannot alter the Admin owner; and
 - role-specific UI behavior matches backend capabilities.
 
 ## 14. Phase 1 exclusions

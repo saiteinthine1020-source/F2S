@@ -150,6 +150,7 @@ def test_restart_revokes_old_challenge_and_only_newest_activates_once(
                 await service.restart(
                     context,
                     member.membership_id,
+                    expected_version=1,
                     now=issued_at + timedelta(hours=1),
                 )
             newest = delivery.drain()[0]
@@ -343,6 +344,7 @@ def test_duplicate_concurrency_expiry_and_wrong_workspace_are_safe(
                             correlation_id=uuid4(),
                         ),
                         membership_id,
+                        expected_version=1,
                         now=now,
                     )
 

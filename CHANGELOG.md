@@ -21,12 +21,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - PostgreSQL inspection and negative tests for incremental migration, unique digests, expiry/lifecycle rules, same-workspace transfers, audit references, and security query indexes.
 - Immutable server-derived authorization context, backend role-capability policy, and context-required workspace-scoped SQLAlchemy repository foundations.
 - Capability decision-table and two-workspace tests for inactive, foreign, fabricated, restricted-field, and no-side-effect mutation denials.
+- Locked Argon2id password hashing, purpose-separated opaque credential, HMAC-SHA-256 digest, timezone-aware single-use lifecycle, and injectable abuse-control primitives.
+- Focused security tests for password hashing/rehash, entropy, purpose separation, constant-time comparison, expiry/replay/revocation, throttling, and redaction.
 
 ### Security
 
 - Private vulnerability-reporting instructions that prohibit public disclosure of vulnerability details, secrets and workspace data.
 - Purpose-separated bearer and challenge digests replace raw credential persistence; audit metadata is bounded relational data without free-form payload storage.
 - Protected repository operations revalidate active account, workspace, membership, role, and capability while foreign and fabricated authority receives one concealed not-found outcome.
+- Identity secret values, password verifiers, keyed digests, and abuse subjects use redacted representations; validation and lifecycle failures expose only bounded safe codes.
 
 ### Changed
 

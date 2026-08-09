@@ -1,5 +1,13 @@
-import { createContext } from "react";
+import { createContext, useContext } from "react";
 
 import type { ApiClient } from "../api/client";
 
 export const ApiClientContext = createContext<ApiClient | null>(null);
+
+export function useApiClient(): ApiClient {
+  const client = useContext(ApiClientContext);
+  if (client === null) {
+    throw new Error("API_CLIENT_UNAVAILABLE");
+  }
+  return client;
+}

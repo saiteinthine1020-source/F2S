@@ -155,7 +155,7 @@ jobs:
   frontend:
     name: Frontend validation
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -192,6 +192,12 @@ jobs:
 
       - name: Test frontend
         run: pnpm test
+
+      - name: Install Chromium for critical browser flows
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test critical frontend browser flows
+        run: pnpm test:e2e
 
       - name: Build frontend
         env:

@@ -16,7 +16,7 @@ const axeOptions = {
 describe("accessible responsive foundation", () => {
   it("renders semantic landmarks, one heading, and a keyboard skip link", async () => {
     const user = userEvent.setup();
-    const router = createMemoryRouter(appRoutes, { initialEntries: ["/"] });
+    const router = createMemoryRouter(appRoutes, { initialEntries: ["/missing"] });
     const { container } = renderLocalized(<RouterProvider router={router} />, {
       language: "shn",
       withRouter: false,

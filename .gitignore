@@ -161,6 +161,8 @@ venv.bak/
 # Node.js frontend dependencies and generated output
 node_modules/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 *.tsbuildinfo
 
 # Spyder project settings

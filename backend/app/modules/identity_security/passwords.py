@@ -114,6 +114,10 @@ class Argon2idPasswordService:
         except (InvalidHashError, VerificationError):
             return True
 
+    def rehash_verified(self, password: SecretText) -> PasswordDigest:
+        """Rehash an already verified legacy password without applying new-password policy."""
+        return PasswordDigest(self._hasher.hash(password.reveal()))
+
     def _validate_new_password(self, password: SecretText) -> None:
         length = len(password.reveal())
         if length < MINIMUM_PASSWORD_CHARACTERS:

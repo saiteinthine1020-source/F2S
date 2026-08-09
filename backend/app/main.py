@@ -5,12 +5,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.bootstrap import router as bootstrap_router
+from app.api.browser_security import BrowserSecurityDenied
 from app.api.errors import correlation_for, safe_error
 from app.api.health import router as health_router
 from app.api.member_activation import router as member_activation_router
 from app.api.security import Unauthenticated
+from app.api.sessions import router as sessions_router
 from app.core.config import RuntimeEnvironment, Settings
 from app.infrastructure.database.session import create_database_engine, create_session_factory
 from app.modules.audit.correlation import CorrelationIdError, resolve_correlation_id
@@ -21,12 +24,14 @@ from app.modules.identity_security import (
     OpaqueCredentialService,
     PasswordPolicyError,
     SecretBytes,
+    SecretText,
 )
 from app.modules.member_activation import (
     DevelopmentActivationOutbox,
     DuplicateMembership,
     RejectingActivationDelivery,
 )
+from app.modules.sessions import DevelopmentLoginAbuseControl, RejectingLoginAbuseControl
 from app.modules.workspace_access import AuthorizationDenied, DenialCode
 
 APP_TITLE = "F2S API"
@@ -59,16 +64,39 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     digest_key = SecretBytes(
         effective_settings.identity_digest_key.get_secret_value().encode("utf-8")
     )
-    application.state.opaque_credentials = OpaqueCredentialService(KeyedDigestService(digest_key))
+    application.state.keyed_digests = KeyedDigestService(digest_key)
+    application.state.opaque_credentials = OpaqueCredentialService(application.state.keyed_digests)
     application.state.password_service = Argon2idPasswordService()
+    application.state.dummy_password_digest = application.state.password_service.hash(
+        SecretText("synthetic-dummy-login-verifier")
+    )
     application.state.activation_delivery = (
         RejectingActivationDelivery()
         if effective_settings.environment is RuntimeEnvironment.PRODUCTION
         else DevelopmentActivationOutbox()
     )
+    application.state.login_abuse = (
+        RejectingLoginAbuseControl()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentLoginAbuseControl()
+    )
     application.include_router(health_router)
     application.include_router(bootstrap_router)
     application.include_router(member_activation_router)
+    application.include_router(sessions_router)
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[effective_settings.frontend_origin],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Correlation-ID",
+            "X-CSRF-Token",
+        ],
+        max_age=600,
+    )
 
     @application.middleware("http")
     async def correlation_middleware(
@@ -116,6 +144,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code=401,
             code="UNAUTHENTICATED",
             message="Authentication is required.",
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(BrowserSecurityDenied)
+    async def browser_security_denied(request: Request, error: BrowserSecurityDenied) -> Response:
+        return safe_error(
+            status_code=error.status_code,
+            code=error.code,
+            message="The browser request is not permitted.",
             correlation_id=correlation_for(request),
         )
 

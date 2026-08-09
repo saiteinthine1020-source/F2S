@@ -3,7 +3,9 @@
 This directory contains the FastAPI modular-monolith foundation and the first PostgreSQL
 identity/workspace slices. It includes one-time bootstrap, Admin-controlled Contributor and
 Advisor provisioning, single-use account activation, digest-only security and audit records,
-and workspace-scoped authorization. Login/session workflows, production activation delivery,
+and workspace-scoped authorization. It also implements concealed normalized-email login,
+short-lived opaque bearer authentication, rotating server-side refresh sessions, reuse-family
+revocation, and logout. Production activation delivery, distributed authentication counters,
 ownership transfer, finance, farming, and background jobs remain out of scope.
 
 ## Boundaries
@@ -37,7 +39,8 @@ The one-time installation bootstrap is available at `GET/POST /api/v1/setup/boot
 PostgreSQL serializes callers through the singleton installation guard; the account, Argon2id
 password verifier, workspace, Active Admin owner membership, explicit module defaults, audit
 events, and completion marker share one transaction. Exactly one concurrent request can win,
-and later attempts receive a concealed conflict. No login session is created by this issue.
+and later attempts receive a concealed conflict. Bootstrap does not create a login session;
+the new Admin signs in through the ordinary authentication route.
 Operators must follow the
 [Bootstrap Operator Procedure](../docs/23_Bootstrap_Operator_Procedure.md); there are no default
 credentials or ordinary reset path.
@@ -69,7 +72,32 @@ adapter is configured, causing the database transaction to roll back instead of 
 undeliverable membership. Logs, API responses, database fields, and examples must use
 placeholders, never a captured value.
 
-Rate-limit storage remains an injected adapter. The shared contracts accept only keyed subject digests and bounded scopes—never raw identifiers or account-existence flags. Fixed-window threshold and progressive login-delay policies are deterministic, while production distributed counters and final measured limits remain later work.
+Authentication is available at `POST /api/v1/auth/login`, refresh at
+`POST /api/v1/auth/refresh`, and logout at `POST /api/v1/auth/logout`. Login and activation
+require the exact configured browser Origin. Refresh and logout additionally require the
+`__Host-f2s_refresh` cookie and the current session-bound `X-CSRF-Token`. Login/refresh return
+the opaque access credential and CSRF value in a `no-store` JSON response; the refresh value
+appears only in a Secure, HttpOnly, SameSite=Strict, Path=/ cookie without a Domain attribute.
+The access value is sent only as `Authorization: Bearer <value>` and every protected request
+rechecks the current session and account state in PostgreSQL.
+
+Access credentials expire after 15 minutes. Refresh idle expiry is seven days and resets only
+after a successful atomic rotation; absolute session expiry is 30 days and never extends.
+Rotation has zero grace. Reusing a rotated refresh value marks historical rotated generations
+as Reuse Detected and revokes the current generation in that family. Logout scope `CURRENT`
+revokes the current family; `ALL` revokes every Active session for the account. Logout is
+idempotent and always expires the browser cookie.
+
+Local/test login abuse control stores only keyed subject digests, applies the provisional
+five-failure progressive delay, and limits one network subject to 30 attempts per 15 minutes
+before Argon2 verification. It is process-local developer/test support. Production rejects
+login until a reviewed distributed counter adapter is configured; it must not silently fall
+back to per-process counters.
+
+Rate-limit storage remains an injected adapter. The shared contracts accept only keyed
+subject digests and bounded scopes—never raw identifiers or account-existence flags.
+Fixed-window threshold and progressive login-delay policies are deterministic, while
+production distributed counters and final measured limits remain later work.
 
 Future module domain code must not import FastAPI, SQLAlchemy or `app.api`. Cross-module access must use documented public contracts; direct imports from another module's internals and circular dependencies remain prohibited by [ADR-001](../docs/adr/ADR-001-modular-monolith.md). FastAPI is limited to the HTTP and application boundary by [ADR-003](../docs/adr/ADR-003-use-fastapi.md).
 
@@ -98,6 +126,7 @@ No `.env` file is loaded automatically by the application. Settings use explicit
 | `F2S_DATABASE_PASSWORD` | none | Required secret; redacted by settings and URL representations |
 | `F2S_DATABASE_SSLMODE` | `disable` | Production requires `verify-full`; disable is local/test only |
 | `F2S_IDENTITY_DIGEST_KEY` | none | Required secret with at least 32 UTF-8 bytes; use random environment-specific material |
+| `F2S_FRONTEND_ORIGIN` | `http://127.0.0.1:5173` | Exact browser origin; production requires explicit HTTPS |
 
 Unknown settings passed to the settings model and unsupported values fail validation. A raw database URL is deliberately unsupported so reserved characters are encoded safely and the password is not copied into logs.
 
@@ -123,7 +152,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health/live
 
 It returns only `{"status":"ok"}`. It does not claim database or external-provider readiness and exposes no configuration, version, hostname, dependency or workspace data.
 
-Safe placeholder requests (authentication is intentionally unavailable until Issue #50):
+Safe placeholder requests:
 
 ```text
 POST /api/v1/workspaces/00000000-0000-4000-8000-000000000101/members
@@ -131,6 +160,16 @@ POST /api/v1/workspaces/00000000-0000-4000-8000-000000000101/members
 
 POST /api/v1/auth/activate
 {"value":"<activation-value-from-development-delivery>","password":"<new-password>"}
+
+POST /api/v1/auth/login
+Origin: http://127.0.0.1:5173
+{"email":"member@example.invalid","password":"<password>"}
+
+POST /api/v1/auth/refresh
+Origin: http://127.0.0.1:5173
+Cookie: __Host-f2s_refresh=<refresh-value>
+X-CSRF-Token: <csrf-value>
+{}
 ```
 
 Do not paste a real activation value, password, database credential, or digest key into source,
@@ -155,4 +194,5 @@ uv run --frozen pytest
 CI provisions a clean PostgreSQL 18 service and always runs clean/incremental migration,
 downgrade, transaction rollback, identity cryptography/redaction, activation
 restart/expiry/replay/concurrency, authorization decision-table, two-workspace repository,
-same-workspace, index, and relational-constraint tests.
+same-workspace, login concealment, session rotation/concurrency/reuse, expiry, logout,
+cookie/Origin/CSRF, abuse-control, index, and relational-constraint tests.

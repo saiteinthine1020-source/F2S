@@ -286,10 +286,10 @@ Limits use distributed server-side counters and combine account/session/actor/wo
 
 Responses use safe `429 RATE_LIMITED` and `Retry-After` when known. Limits apply before expensive hashing, parsing, rendering, or provider calls where feasible. Successful idempotent replay may use a low-cost tier but never bypasses abuse detection or authorisation.
 
-### 14.1 Implemented identity-security primitives
+### 14.1 Implemented identity-security and session foundation
 
-The framework-free Identity Security module implements the shared primitive layer without
-adding an authentication endpoint or workflow:
+The framework-free Identity Security and Sessions modules implement the shared primitive and
+opaque-session lifecycle layers:
 
 - `argon2-cffi` is locked and configured explicitly for Argon2id with the provisional
   65,536 KiB memory, three-iteration, parallelism-one candidate, 32-byte output, random
@@ -303,21 +303,29 @@ adding an authentication endpoint or workflow:
   the underlying digest while the application construction is keyed HMAC;
 - digest verification uses `hmac.compare_digest`; wrong-purpose, invalid, expired,
   consumed, and revoked outcomes are bounded internal codes without bearer content;
-- timestamps must be timezone-aware, activation/recovery may use the provisional 24-hour
-  constant, and consumption verifies value and purpose before producing immutable use
-  evidence; the later persistence service must perform verification/consumption atomically;
+- timestamps must be timezone-aware, activation/recovery use the provisional 24-hour
+  constant, and PostgreSQL session/challenge adapters perform verification and lifecycle
+  mutation atomically;
 - rate-limit adapters receive a bounded scope and keyed subject digest, never a raw login
   identifier or account-existence flag; fixed-window and progressive delay policies are
   deterministic and storage-independent; and
 - clear values, keys, encoded password verifiers, keyed digests, abuse subjects, and
   failures use redacted ordinary representations or bounded codes. Tests use only clearly
-  synthetic canaries and must not print their revealed values.
+  synthetic canaries and must not print their revealed values;
+- login uses concealed normalized-email lookup and dummy Argon2 verification for unknown
+  accounts; access, refresh, and CSRF values are issued independently and persisted only as
+  purpose-separated digests;
+- access, idle, and absolute expiry, zero-grace rotation, lineage, reuse-family revocation,
+  current/all logout, inactive-account checks, exact Origin, CSRF, cookie attributes, and
+  safe audit evidence are enforced and covered by automated tests; and
+- local/test login throttling uses only keyed account/network subjects. Production rejects
+  login until a distributed counter adapter is configured instead of weakening the policy.
 
 The digest key has no source-code default and must be supplied by reviewed runtime secret
-configuration when a consuming workflow is implemented. Key rotation invalidates affected
+configuration. Key rotation invalidates affected
 outstanding digests and therefore requires an explicit session/challenge revocation and
-deployment procedure. Production distributed counters, final measured limits, public
-authentication behavior, and delivery remain deferred to their owning Phase 1 issues.
+deployment procedure. Production distributed counters, final measured limits, activation
+delivery, and later identity lifecycles remain deferred to their owning Phase 1 issues.
 
 ## 15. Authorisation and workspace isolation
 

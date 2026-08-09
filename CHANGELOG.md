@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Capability decision-table and two-workspace tests for inactive, foreign, fabricated, restricted-field, and no-side-effect mutation denials.
 - Locked Argon2id password hashing, purpose-separated opaque credential, HMAC-SHA-256 digest, timezone-aware single-use lifecycle, and injectable abuse-control primitives.
 - Focused security tests for password hashing/rehash, entropy, purpose separation, constant-time comparison, expiry/replay/revocation, throttling, and redaction.
+- Bounded Phase 1 audit and correlation contracts, an append-only transaction-bound SQLAlchemy writer, safe concealed-denial evidence, and an authoritative event catalogue.
+- Audit validation and PostgreSQL evidence for UTC identity/workspace events, metadata redaction, append-only boundaries, correlation consistency, and atomic state-plus-audit commit/rollback.
 
 ### Security
 
@@ -30,6 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Purpose-separated bearer and challenge digests replace raw credential persistence; audit metadata is bounded relational data without free-form payload storage.
 - Protected repository operations revalidate active account, workspace, membership, role, and capability while foreign and fabricated authority receives one concealed not-found outcome.
 - Identity secret values, password verifiers, keyed digests, and abuse subjects use redacted representations; validation and lifecycle failures expose only bounded safe codes.
+- Audit accepts only reviewed codes and stable references; malformed correlation values and denied foreign-resource probes are never reflected into evidence or safe errors.
 
 ### Changed
 

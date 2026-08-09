@@ -160,6 +160,7 @@ Start with the [Documentation Index](docs/00_Documentation_Index.md). The Phase 
 - [Operations Runbook](docs/19_Operations_Runbook.md)
 - [Backup and Recovery Design](docs/20_Backup_Recovery.md)
 - [Data Dictionary](docs/21_Data_Dictionary.md)
+- [Audit Event Catalogue](docs/22_Audit_Event_Catalogue.md)
 - [ADR-001: Use a Modular Monolith](docs/adr/ADR-001-modular-monolith.md)
 - [ADR-002: Use PostgreSQL](docs/adr/ADR-002-use-postgresql.md)
 - [ADR-003: Use FastAPI](docs/adr/ADR-003-use-fastapi.md)

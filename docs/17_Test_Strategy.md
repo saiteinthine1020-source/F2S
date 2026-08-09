@@ -293,6 +293,13 @@ Threat/control tests derive from `docs/15_Security_Design.md` and include:
 - structured logs/audit required fields, UTC time, correlation, append behavior, authorised queries, and retention; and
 - synthetic prohibited-value canaries proving absence of passwords, tokens, cookies, authorisation/CSRF headers, API keys, private keys, full bank/payment details, raw files/reports, and unmasked AI payloads.
 
+Phase 1 audit foundation evidence additionally proves that identity and workspace scopes retain
+only valid references, metadata accepts declared codes rather than raw values, denied foreign
+access omits the probed identifier, the public writer exposes no update/delete path, and required
+state plus audit either commits or rolls back in the same PostgreSQL transaction. Correlation
+tests assert that safe errors and evidence share the validated/generated UUID without reflecting
+malformed input.
+
 Scanner success does not replace targeted tests or review. A Critical/High finding cannot be hidden by excluding a path; a time-bound risk acceptance requires owner, mitigation, expiry, and release approval.
 
 ## 15. Frontend component, accessibility, and internationalisation suites

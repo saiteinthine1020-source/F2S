@@ -115,6 +115,12 @@ Operators may collect:
 
 Operators must not paste passwords, tokens, cookies, authorisation/CSRF headers, private keys, full connection strings, payment/bank details, raw SQL parameters, request/response bodies, protected files/reports, workspace free text or unmasked AI payloads into terminal history, tickets, email/chat, screenshots or support bundles.
 
+For Phase 1 investigation, begin with the safe UUID correlation ID and a bounded UTC window.
+Correlate operational records with the action/result evidence defined in the
+[Audit Event Catalogue](22_Audit_Event_Catalogue.md). Do not infer that an omitted workspace or
+resource ID is missing telemetry: concealed denial events intentionally exclude probed foreign
+identifiers. Audit correction appends new evidence; operators do not update or delete an event.
+
 If sensitive evidence is necessary for a security investigation, it uses a separately approved encrypted evidence location, minimum access, chain-of-custody record and expiry. Public GitHub issues/PRs never contain vulnerability or workspace details.
 
 ## 10. Incident response lifecycle

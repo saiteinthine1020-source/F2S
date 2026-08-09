@@ -66,6 +66,12 @@ request/response payloads, free text, contact details, financial values, or befo
 copies. A later need for metadata must be represented by a reviewed enum rather than a generic
 key/value field.
 
+Ownership-transfer audit events reference only the stable transfer resource after a successful
+transition. Denied target, password, proof, replay, and foreign-resource decisions carry no
+submitted membership ID, transfer ID, digest, clear confirmation value, email, or role payload.
+Session revocation and transfer completion evidence share the request correlation ID and commit
+with the owner/membership changes.
+
 ## Required evidence
 
 Automated evidence covers field and enum validation, correlation generation/rejection,

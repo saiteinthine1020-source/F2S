@@ -149,6 +149,7 @@ Phase 1 workspace and membership routes are:
 | `DELETE /api/v1/workspaces/{workspace_id}/members/{membership_id}` | Revoke eligible Contributor or Advisor access | Admin |
 | `POST /api/v1/workspaces/{workspace_id}/ownership-transfers` | Initiate dedicated high-assurance ownership transfer | Current owner with recent reauthentication |
 | `POST /api/v1/workspaces/{workspace_id}/ownership-transfers/{transfer_id}/confirm` | Confirm and atomically complete eligible transfer | Confirmed target plus transfer proof |
+| `POST /api/v1/workspaces/{workspace_id}/ownership-transfers/{transfer_id}/cancel` | Cancel an initiated transfer | Current owner plus current transfer version |
 
 Bootstrap, workspace creation, member creation, activation restart, recovery confirmation, and ownership-transfer confirmation define explicit idempotency and concurrency behavior. Generic membership mutation never creates a second Admin, removes the sole owner, or transfers ownership.
 
@@ -219,6 +220,40 @@ Phase 1 has no workspace-bound session that could be revoked more narrowly. Prot
 authorization also rechecks current membership state and role on every request. Foreign IDs
 remain concealed, stale writes have no lifecycle side effect, and successful/denied changes
 write bounded audit evidence without submitted profile or identifier payloads.
+
+### 6.3 Implemented ownership-transfer contract
+
+Ownership transfer is a strict-JSON, exact-Origin browser workflow and never a membership
+PATCH. Initiation accepts `target_membership_id`, the former owner's destination role
+(`CONTRIBUTOR` or `ADVISOR`), and `current_password`. The active session and Argon2id current
+password are revalidated against the sole Active Admin owner. The target must be a distinct
+Active same-workspace Contributor or Advisor backed by an Active account.
+
+A successful initiation returns `201`, `Location`, `Cache-Control: no-store`, `ETag: "v1"`,
+and a safe transfer representation. It creates a 30-minute random confirmation value, stores
+only its purpose-separated keyed digest, and sends the clear value exactly once through the
+configured target delivery boundary. Reauthentication failure returns
+`401 REAUTHENTICATION_REQUIRED`; foreign or ineligible target identifiers remain concealed as
+`404 RESOURCE_NOT_FOUND`. Starting a replacement transfer cancels an earlier live transfer
+under the workspace lock and audits that transition.
+
+Confirmation requires an authenticated Active target membership and the clear transfer value.
+The repository locks the workspace, transfer, and both memberships. It validates target
+binding, digest, state, expiry, account/membership eligibility, and the unchanged current
+owner. One transaction records confirmation, demotes the former owner to the selected role,
+promotes the target to Admin, moves the workspace owner reference, completes the transfer,
+revokes every Active session for both accounts, appends audit evidence, and emits one batch of
+completion-notification intents. Required audit or notification failure rolls back the whole
+transaction. Concurrent confirmation has one winner; replay and invalid/expired proof return
+the same `401 TRANSFER_CONFIRMATION_DENIED` representation without echoing identifiers or
+proof material.
+
+Cancellation accepts `{}` and requires `If-Match: "vN"`; it returns `204` only while the
+current owner and transfer are still eligible. Missing versions return 428, stale versions
+return 412, and terminal or expired state returns 409. The persisted lifecycle is
+`INITIATED` to `COMPLETED` through confirmation, or `INITIATED` to `CANCELLED`/`EXPIRED`.
+`CONFIRMED` evidence is stored before the same transaction reaches `COMPLETED`; it is never a
+window in which two owners can commit.
 
 ## 7. Workspace context and authorisation
 

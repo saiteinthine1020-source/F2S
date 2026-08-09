@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.account_security import router as account_security_router
 from app.api.bootstrap import router as bootstrap_router
 from app.api.browser_security import BrowserSecurityDenied
 from app.api.errors import correlation_for, safe_error
@@ -16,6 +17,13 @@ from app.api.security import Unauthenticated
 from app.api.sessions import router as sessions_router
 from app.core.config import RuntimeEnvironment, Settings
 from app.infrastructure.database.session import create_database_engine, create_session_factory
+from app.modules.account_security import (
+    DevelopmentRecoveryAbuseControl,
+    DevelopmentRecoveryOutbox,
+    RecoveryDeliveryUnavailable,
+    RejectingRecoveryAbuseControl,
+    RejectingRecoveryDelivery,
+)
 from app.modules.audit.correlation import CorrelationIdError, resolve_correlation_id
 from app.modules.bootstrap.service import BootstrapUnavailable
 from app.modules.identity_security import (
@@ -80,10 +88,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if effective_settings.environment is RuntimeEnvironment.PRODUCTION
         else DevelopmentLoginAbuseControl()
     )
+    application.state.recovery_delivery = (
+        RejectingRecoveryDelivery()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentRecoveryOutbox()
+    )
+    application.state.recovery_abuse = (
+        RejectingRecoveryAbuseControl()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentRecoveryAbuseControl()
+    )
     application.include_router(health_router)
     application.include_router(bootstrap_router)
     application.include_router(member_activation_router)
     application.include_router(sessions_router)
+    application.include_router(account_security_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[effective_settings.frontend_origin],
@@ -177,6 +196,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code=409,
             code="DUPLICATE_RESOURCE",
             message="The member already belongs to this workspace.",
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(RecoveryDeliveryUnavailable)
+    async def recovery_delivery_unavailable(
+        request: Request, error: RecoveryDeliveryUnavailable
+    ) -> Response:
+        del error
+        return safe_error(
+            status_code=503,
+            code="SERVICE_UNAVAILABLE",
+            message="Recovery delivery is unavailable.",
             correlation_id=correlation_for(request),
         )
 

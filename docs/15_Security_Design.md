@@ -55,7 +55,7 @@ References are pinned by version or review date in the implementation/test strat
 ### 4.3 Non-goals for this issue
 
 - selecting a commercial identity provider, WAF, SIEM, malware scanner, or secrets product;
-- implementing multi-factor authentication, passkeys, SSO, or application code for the documented recovery contract;
+- implementing multi-factor authentication, passkeys, SSO, or the high-assurance owner-recovery procedure;
 - legal conclusions about retention, residency, or regulatory classification;
 - physical-datacentre security; and
 - claiming penetration-test or production-hardening completion.
@@ -203,8 +203,23 @@ Risk priority considers impact on workspace confidentiality, financial correctne
 - Responses do not reveal whether an unrelated email/account exists.
 - Password change requires current-password or approved step-up proof, rotates the account security version, and revokes other sessions by default.
 - Deactivation prevents new authentication and invalidates active sessions at the next protected check.
-- Recovery cannot rely on knowledge-based security questions. The exact recovery and MFA/passkey design requires a separate approved issue before public use.
+- Recovery cannot rely on knowledge-based security questions. MFA/passkeys and the high-assurance owner-recovery procedure require separately approved issues before public use.
 - Owner recovery and sole-owner changes require a separately reviewed high-assurance workflow; support/operator access cannot silently assume workspace ownership or create a second owner.
+
+The Phase 1 implementation requires the current password for password change, retains the
+current authenticated session, revokes every other Active session, and increments the
+account version with safe audit evidence. Concealed recovery returns one `202 ACCEPTED`
+response across eligible, missing, inactive, and owner accounts. An eligible non-owner
+account receives a purpose-separated digest-only 24-hour challenge; restart revokes the
+earlier Issued value. Confirmation hashes the proposed password before bounded challenge
+verification, locks and atomically consumes the challenge, and revokes all Active sessions.
+Exact expiry, revoked values, replay, and concurrent losers share one public failure.
+
+Local/test recovery delivery is a process-local outbox and its one-hour limiter stores only
+keyed recipient/network subjects with limits of five and 20 respectively. Production fails
+closed uniformly until reviewed durable delivery and distributed limiting adapters exist.
+Ordinary owner recovery is ineligible and cannot bypass the separate high-assurance owner
+procedure.
 
 ## 12. Session and token design
 
@@ -318,14 +333,16 @@ opaque-session lifecycle layers:
 - access, idle, and absolute expiry, zero-grace rotation, lineage, reuse-family revocation,
   current/all logout, inactive-account checks, exact Origin, CSRF, cookie attributes, and
   safe audit evidence are enforced and covered by automated tests; and
-- local/test login throttling uses only keyed account/network subjects. Production rejects
-  login until a distributed counter adapter is configured instead of weakening the policy.
+- local/test login and recovery throttling use only keyed subjects. Production rejects login
+  or recovery until the required distributed counter adapters are configured instead of
+  weakening the policy; production recovery also requires durable delivery.
 
 The digest key has no source-code default and must be supplied by reviewed runtime secret
 configuration. Key rotation invalidates affected
 outstanding digests and therefore requires an explicit session/challenge revocation and
 deployment procedure. Production distributed counters, final measured limits, activation
-delivery, and later identity lifecycles remain deferred to their owning Phase 1 issues.
+and recovery delivery, and later identity lifecycles remain deferred to their owning Phase 1
+issues.
 
 ## 15. Authorisation and workspace isolation
 
@@ -553,7 +570,7 @@ Pull requests identify affected threats/control IDs and verification evidence. A
 
 ## 27. Deferred decisions and Issue #11 acceptance
 
-Deferred: approved MFA/passkey/recovery design, exact production Argon2id parameters after benchmark, final rate limits after load/abuse tests, CSP hashes/nonces for the selected frontend build, malware/sanitisation tooling, offline encryption/device support, provider contracts, legal retention, backup matrix, SIEM/alert vendor, host topology, and penetration-test provider/scope.
+Deferred: approved MFA/passkey and owner-recovery design, exact production Argon2id parameters after benchmark, final rate limits after load/abuse tests, CSP hashes/nonces for the selected frontend build, malware/sanitisation tooling, offline encryption/device support, provider contracts, legal retention, backup matrix, SIEM/alert vendor, host topology, and penetration-test provider/scope.
 
 Issue #11 is satisfied when review confirms that:
 

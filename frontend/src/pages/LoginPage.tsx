@@ -22,7 +22,8 @@ export function LoginPage() {
       submitLabel={t("auth.login.submit")}
       busyLabel={t("auth.common.submitting")}
       busy={busy}
-      error={error ?? (reason ? t(`auth.session.${reason}`) : null)}
+      error={error ?? (reason && reason !== "ownership" ? t(`auth.session.${reason}`) : null)}
+      success={reason === "ownership" ? t("auth.session.ownership") : null}
       onSubmit={async (event) => {
         event.preventDefault();
         setBusy(true);

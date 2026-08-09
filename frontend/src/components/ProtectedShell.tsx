@@ -6,7 +6,7 @@ import type { SupportedRole } from "../api/contracts";
 import { useAuth } from "../auth/AuthContext";
 
 const navigation: Record<SupportedRole, readonly string[]> = {
-  ADMIN: ["home", "transactions", "add", "reports", "more"],
+  ADMIN: ["home", "transactions", "add", "reports", "admin"],
   CONTRIBUTOR: ["submissions", "add", "status", "more"],
   ADVISOR: ["home", "transactions", "reports", "review", "more"],
 };

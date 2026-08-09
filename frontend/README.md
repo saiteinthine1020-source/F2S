@@ -2,8 +2,8 @@
 
 This directory contains the Phase 1 React and TypeScript application. It provides the build,
 routing, runtime configuration, API, localization, authentication, protected workspace shell,
-accessible state components, and test boundaries needed by later workspace-administration and
-business issues. It intentionally contains no member-management form, financial feature,
+accessible state components, and test boundaries needed by later business issues. It includes
+Phase 1 workspace and member administration but intentionally contains no financial feature,
 service worker, offline queue, or sample business data.
 
 ## Prerequisites
@@ -57,7 +57,8 @@ Login returns an opaque access value and synchronizer-CSRF value to browser memo
 opaque refresh value remains in the `Secure`, `HttpOnly`, `SameSite=Strict` cookie. The client:
 
 - attaches the access value only to protected requests;
-- attaches CSRF only to refresh and logout requests that explicitly require it;
+- attaches CSRF only to refresh, logout, and protected browser mutations that explicitly
+  require it;
 - schedules one refresh before access expiry and never starts parallel refreshes;
 - clears credentials, TanStack Query state, and selected workspace before logout, expiry,
   revocation, unsafe refresh failure, or workspace switching; and
@@ -72,6 +73,31 @@ single-flight zero-grace refresh rule.
 Public activation/recovery evidence is entered in password-style fields and is never read from
 the URL. Recovery request and proof failures use generic translated copy that does not disclose
 whether an account, owner, challenge, or foreign workspace exists.
+
+## Workspace administration
+
+Only an authenticated Admin sees the **Administration** destination. The nested routes are:
+
+- `/app/admin/settings` for versioned workspace identity, profile, and module settings;
+- `/app/admin/members` for member provisioning, role changes, suspension, reactivation,
+  activation restart, and revocation;
+- `/app/admin/ownership` for owner reauthentication, consequence confirmation, initiation,
+  outcome, expiry, and cancellation; and
+- `/app/ownership/confirm` for the selected target member to submit the transfer ID and
+  single-use confirmation value without URL evidence.
+
+Contributor and Advisor direct visits to Admin routes render no administration resource and
+make no administration API request. This is a privacy optimization, not authorization: every
+Admin request can still receive a safe backend denial if the client role is stale. Settings,
+membership, and cancellation writes send the last observed version through `If-Match`. A `412`
+stops the write, preserves appropriate non-secret input, and requires an explicit latest-state
+reload; the client never retries a stale mutation automatically.
+
+Destructive and privilege-changing actions require a labelled confirmation. Ownership
+initiation additionally requires the current password and an explicit consequence checkbox.
+Confirmation completes only for the authenticated target membership, atomically changes the
+roles on the server, revokes both affected accounts' sessions, and destroys local protected
+state before explaining that both users must sign in again.
 
 ## Localization
 
@@ -102,15 +128,17 @@ pnpm build
 The current tests cover runtime configuration, English fallback and missing keys, browser
 persistent-storage exclusion, secure-cookie and memory-only API/CSRF credentials, public and
 protected routing, role navigation, expiry/revocation, failed logout, workspace switching,
-concealed recovery, translated states, semantic landmarks, keyboard skip access, automated axe
-smoke checks, and Chromium critical flows. Automated scanning supplements rather than replaces
-screen-reader, zoom, touch, contrast, Shan linguistic, and reference-device review.
+concealed recovery, Admin-only no-request routing, optimistic conflict handling, workspace and
+member administration, ownership reauthentication/confirmation, translated states, semantic
+landmarks, keyboard skip access, automated axe smoke checks, and Chromium critical flows.
+Automated scanning supplements rather than replaces screen-reader, zoom, touch, contrast, Shan
+linguistic, and reference-device review.
 
 ## Foundation structure
 
 ```text
 src/
-|-- api/          memory-only credential and safe fetch boundary
+|-- api/          memory-only credential, safe fetch, and typed administration boundaries
 |-- app/          providers, router, and translated error boundary
 |-- auth/         in-memory session lifecycle and public/protected route guards
 |-- components/   responsive forms, shells, and honest standard states

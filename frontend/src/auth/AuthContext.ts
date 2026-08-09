@@ -1,8 +1,13 @@
 import { createContext, useContext } from "react";
 
-import type { SelectedWorkspaceView, SessionView, WorkspaceMembership } from "../api/contracts";
+import type {
+  SelectedWorkspace,
+  SelectedWorkspaceView,
+  SessionView,
+  WorkspaceMembership,
+} from "../api/contracts";
 
-export type SessionEndReason = "expired" | "network" | null;
+export type SessionEndReason = "expired" | "network" | "ownership" | null;
 
 export type AuthState =
   | { readonly status: "checking" }
@@ -29,6 +34,8 @@ export interface AuthController {
   signOut(scope: "CURRENT" | "ALL"): Promise<void>;
   selectWorkspace(workspaceId: string): Promise<void>;
   beginWorkspaceSwitch(): void;
+  acceptWorkspaceUpdate(details: SelectedWorkspace): void;
+  endOwnershipTransferSession(): void;
   markBootstrapComplete(): void;
 }
 

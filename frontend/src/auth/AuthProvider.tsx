@@ -10,7 +10,7 @@ import {
   logout,
   refreshSession,
 } from "../api/auth";
-import type { SessionView, WorkspaceMembership } from "../api/contracts";
+import type { SelectedWorkspace, SessionView, WorkspaceMembership } from "../api/contracts";
 import { useApiClient } from "../app/ApiClientContext";
 import { AuthContext, type AuthState, type SessionEndReason } from "./AuthContext";
 
@@ -177,6 +177,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
           memberships: state.memberships,
           error: false,
         });
+      },
+      acceptWorkspaceUpdate(details: SelectedWorkspace) {
+        if (
+          state.status !== "authenticated" ||
+          details.workspace.id !== state.selected.membership.workspace.id
+        ) {
+          throw new TypeError("WORKSPACE_UPDATE_INVALID");
+        }
+        const membership = { ...state.selected.membership, workspace: details.workspace };
+        setState({
+          ...state,
+          memberships: state.memberships.map((item) =>
+            item.workspace.id === details.workspace.id ? membership : item,
+          ),
+          selected: { membership, details },
+        });
+      },
+      endOwnershipTransferSession() {
+        endSession("ownership");
       },
       markBootstrapComplete() {
         client.setSessionCredentials(null);

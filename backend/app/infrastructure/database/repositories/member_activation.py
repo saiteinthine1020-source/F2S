@@ -91,15 +91,15 @@ class SqlAlchemyMemberActivationRepository(MemberActivationRepository):
             raise DuplicateMembership()
 
         membership_id = uuid4()
-        self._session.add(
-            WorkspaceMembership(
-                id=membership_id,
-                workspace_id=command.context.workspace_id,
-                user_account_id=account.id,
-                role=command.role.value,
-                status="PENDING",
-            )
+        membership = WorkspaceMembership(
+            id=membership_id,
+            workspace_id=command.context.workspace_id,
+            user_account_id=account.id,
+            role=command.role.value,
+            status="PENDING",
         )
+        self._session.add(membership)
+        await self._session.flush()
         self._add_challenge(command.context.workspace_id, membership_id, account.id, credential)
         await self._session.flush()
         await self._audit(

@@ -4,6 +4,15 @@ import ast
 from pathlib import Path
 
 MODULE_ROOT = Path(__file__).parents[1] / "app" / "modules"
+SCOPED_REPOSITORY_PATHS = (
+    MODULE_ROOT / "workspace_access" / "repositories.py",
+    Path(__file__).parents[1]
+    / "app"
+    / "infrastructure"
+    / "database"
+    / "repositories"
+    / "workspace_access.py",
+)
 FORBIDDEN_IMPORTS = ("app.api", "fastapi", "sqlalchemy")
 
 
@@ -26,5 +35,25 @@ def test_business_modules_do_not_depend_on_http_or_persistence_frameworks() -> N
         for imported in imported_modules(source_path):
             if imported.startswith(FORBIDDEN_IMPORTS):
                 violations.append(f"{source_path}: {imported}")
+
+    assert violations == []
+
+
+def test_protected_workspace_repository_methods_require_context() -> None:
+    """Prevent a new public protected repository method from omitting authority."""
+    violations: list[str] = []
+    for repository_path in SCOPED_REPOSITORY_PATHS:
+        tree = ast.parse(
+            repository_path.read_text(encoding="utf-8"),
+            filename=str(repository_path),
+        )
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if node.name.startswith("_") or node.name == "resolve_context":
+                continue
+            positional_names = [argument.arg for argument in node.args.args]
+            if positional_names[:2] != ["self", "context"]:
+                violations.append(f"{repository_path.name}:{node.name}")
 
     assert violations == []

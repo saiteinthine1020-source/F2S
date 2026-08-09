@@ -15,6 +15,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - ADR-003 and an initial typed FastAPI modular-monolith skeleton with safe settings, liveness behavior, locked tooling, tests, CI and a non-root local container.
 - Phase 1 workspace and identity authority, repository instructions, and ADR-012 through
   ADR-016 covering isolation, ownership, sessions, onboarding, recovery, and module types.
+- SQLAlchemy 2 async PostgreSQL infrastructure, reviewed Alembic migration, and the five-table Identity and Workspace Access schema foundation.
+- PostgreSQL CI coverage for clean migration lifecycle, transaction rollback, and foundational workspace constraints.
 
 ### Security
 
@@ -23,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 ### Changed
 
 - Aligned the roadmap, root guidance, secondary designs, and operational documentation with Workspace as the canonical tenant boundary and Admin, Contributor, and Advisor as the Phase 1 roles.
+- Required typed database connection settings with secret redaction and verified TLS in production.
 
 ### Licensing
 

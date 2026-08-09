@@ -7,10 +7,19 @@ services:
       F2S_ENVIRONMENT: local
       F2S_DEBUG: "false"
       F2S_DOCS_ENABLED: "false"
+      F2S_DATABASE_HOST: postgres
+      F2S_DATABASE_PORT: "5432"
+      F2S_DATABASE_NAME: ${F2S_POSTGRES_DB:-f2s_local}
+      F2S_DATABASE_USER: ${F2S_POSTGRES_USER:-f2s_local_owner}
+      F2S_DATABASE_PASSWORD: ${F2S_POSTGRES_PASSWORD:?Set F2S_POSTGRES_PASSWORD in .env}
+      F2S_DATABASE_SSLMODE: disable
     ports:
       - "127.0.0.1:${F2S_API_HOST_PORT:-8000}:8000"
     networks:
       - data
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -22,6 +31,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 10s
     security_opt:
       - no-new-privileges:true
     read_only: true

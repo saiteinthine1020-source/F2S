@@ -23,6 +23,8 @@ ENV PATH="/srv/f2s/.venv/bin:$PATH" \
 
 COPY --from=builder --chown=f2s:f2s /srv/f2s/.venv ./.venv
 COPY --chown=f2s:f2s app ./app
+COPY --chown=f2s:f2s migrations ./migrations
+COPY --chown=f2s:f2s alembic.ini ./alembic.ini
 
 USER 10001:10001
 

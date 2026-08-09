@@ -2,7 +2,7 @@
 
 F2S is a mobile-first financial management and farm-investment platform for households, farms, microbusinesses, and small businesses. It helps workspace members record reliable financial data, understand crop performance, plan future seasons, and receive cautious AI-assisted explanations without allowing AI to become the source of truth for financial calculations.
 
-Phase 0 foundation work is complete. The repository is currently at the **Phase 1 - Authentication and Workspace documentation gate**. No identity, workspace, finance, farming, or other application feature has been implemented.
+Phase 0 foundation work is complete. Phase 1 implementation has begun with the Identity and Workspace Access database foundation. Authentication workflows and finance, farming, reporting, AI, and offline features remain unimplemented.
 
 ## Product goals
 
@@ -85,7 +85,7 @@ To reset only this Compose project's local PostgreSQL volume, use the following 
 docker compose down --volumes
 ```
 
-The database and API ports are published only on IPv4 loopback (`127.0.0.1`) for local tools. Both containers join the private `data` network, but the API has no database dependency or client in this skeleton. Production must not publish PostgreSQL on any host interface; see the [Deployment Design](docs/18_Deployment_Design.md) and [Backend README](backend/README.md).
+The database and API ports are published only on IPv4 loopback (`127.0.0.1`) for local tools. Both containers join the private `data` network, and the API receives its database settings through separate typed variables rather than a raw connection URL. Production must not publish PostgreSQL on any host interface; see the [Deployment Design](docs/18_Deployment_Design.md) and [Backend README](backend/README.md).
 
 ## Proposed final monorepo structure
 

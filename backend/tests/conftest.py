@@ -11,6 +11,7 @@ from alembic.config import Config
 from app.core.config import Settings
 
 _SYNTHETIC_PASSWORD = "-".join(("synthetic", "test", "value"))
+_SYNTHETIC_DIGEST_KEY = "-".join(("synthetic", "identity", "digest", "key", "material", "only"))
 _TEST_ENVIRONMENT = {
     "F2S_ENVIRONMENT": "test",
     "F2S_DATABASE_HOST": "127.0.0.1",
@@ -19,6 +20,7 @@ _TEST_ENVIRONMENT = {
     "F2S_DATABASE_USER": "f2s_test_owner",
     "F2S_DATABASE_PASSWORD": _SYNTHETIC_PASSWORD,
     "F2S_DATABASE_SSLMODE": "disable",
+    "F2S_IDENTITY_DIGEST_KEY": _SYNTHETIC_DIGEST_KEY,
 }
 for _name, _value in _TEST_ENVIRONMENT.items():
     os.environ.setdefault(_name, _value)

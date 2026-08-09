@@ -145,6 +145,21 @@ Activation credentials are random, high entropy, stored only as digests, expire,
 single-use, and are invalidated when activation is restarted. Email link or code delivery is
 preferred. A development outbox may be used outside production.
 
+The initial implementation uses a 24-hour challenge lifetime. Provisioning and restart
+persist the digest and lifecycle evidence in the same transaction as the membership/audit
+change. The clear value crosses only the delivery port. The process-local development outbox
+is test/developer support, not durable delivery; production fails closed until a reviewed
+durable adapter is configured. A delivery failure must roll back provisioning or restart so
+an unusable current challenge is not committed.
+
+Activation locks the challenge, its same-workspace membership reference, and its account.
+Only a Pending Contributor or Advisor membership can become Active. A new Pending Activation
+account must set its first password; an already Active account keeps its existing verifier.
+An expired challenge becomes Expired, restart makes earlier Issued challenges Revoked, and a
+successful challenge becomes Used. Historical challenge rows are retained. Invalid, expired,
+revoked, replayed, wrong-workspace, and ineligible-state attempts share one concealed public
+failure and bounded audit evidence.
+
 If a temporary-password fallback is later enabled, the password is system-generated,
 shown once, hashed immediately, expiring, single-use, and forces password replacement
 before any workspace access. An Admin cannot choose, retrieve, or redisplay it.

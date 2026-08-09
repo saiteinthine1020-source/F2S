@@ -10,6 +10,7 @@ DATABASE_VALUES: dict[str, object] = {
     "database_name": "f2s_test",
     "database_user": "f2s_test_owner",
     "database_password": "-".join(("synthetic", "test", "value")),
+    "identity_digest_key": "-".join(("synthetic", "identity", "digest", "key", "material", "only")),
 }
 
 
@@ -72,3 +73,10 @@ def test_database_secret_is_redacted() -> None:
     assert password not in repr(settings)
     assert password not in settings.database_url.render_as_string()
     assert settings.database_url.drivername == "postgresql+psycopg"
+    assert settings.identity_digest_key.get_secret_value() not in repr(settings)
+
+
+def test_short_identity_digest_key_is_rejected() -> None:
+    values = {**DATABASE_VALUES, "identity_digest_key": "too-short"}
+    with pytest.raises(ValidationError):
+        Settings.model_validate(values)

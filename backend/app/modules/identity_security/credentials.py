@@ -148,6 +148,10 @@ class OpaqueCredentialService:
         )
         return IssuedOpaqueCredential(value=value, record=record)
 
+    def fingerprint(self, purpose: OpaqueCredentialPurpose, presented: SecretText) -> KeyedDigest:
+        """Derive a purpose-bound lookup digest without exposing the bearer value."""
+        return self._digests.digest(DigestPurpose(purpose.value), presented)
+
     def verify(
         self,
         purpose: OpaqueCredentialPurpose,

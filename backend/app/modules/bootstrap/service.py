@@ -8,9 +8,13 @@ from typing import Final, Protocol
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from app.modules.identity_security import Argon2idPasswordService, PasswordDigest, SecretText
+from app.modules.identity_security import (
+    Argon2idPasswordService,
+    PasswordDigest,
+    SecretText,
+    normalize_email,
+)
 
-_EMAIL_PATTERN: Final = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _CURRENCY_PATTERN: Final = re.compile(r"^[A-Z]{3}$")
 SUPPORTED_LANGUAGES: Final = frozenset({"en", "ja", "my", "shn"})
 
@@ -122,13 +126,6 @@ class BootstrapService:
             correlation_id=command.correlation_id,
         )
         return await self._repository.complete(prepared)
-
-
-def normalize_email(value: str) -> str:
-    normalized = unicodedata.normalize("NFKC", value).strip().lower()
-    if len(normalized) > 320 or not _EMAIL_PATTERN.fullmatch(normalized):
-        raise ValueError("INVALID_EMAIL")
-    return normalized
 
 
 def validate_currency(value: str) -> str:

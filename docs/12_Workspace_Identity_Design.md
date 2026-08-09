@@ -81,6 +81,29 @@ The backend authorizes capabilities rather than trusting client role strings. Co
 response schemas and queries must omit restricted aggregates rather than returning masked
 or zero values.
 
+### 4.1 Implemented authorization and repository boundary
+
+Workspace Access defines the code-level `AuthorizationContext` as an immutable,
+server-derived value containing the authenticated account ID, selected workspace ID,
+Active membership ID, current role, derived capability set, and correlation ID. Capability
+sets are fixed by the matrix above; clients cannot supply or widen them. Repository adapters
+revalidate the account, workspace, membership, and persisted role before every protected
+operation so constructing or retaining a context object does not create authority.
+
+Every public protected repository method requires this context. Its SQL reads and mutations
+include the selected `workspace_id`; global protected find-by-ID methods and post-query
+workspace filtering are prohibited. Non-administrative workspace references deliberately
+exclude profile administration fields. The separate administration projection and module
+mutation require `MANAGE_WORKSPACE_SETTINGS`, so Contributor and Advisor call paths cannot
+request those fields or operations.
+
+Known role-capability denial uses the stable `PERMISSION_DENIED` code. Inactive account,
+workspace, and membership states have bounded status codes without protected payloads.
+Missing, foreign-workspace, fabricated, stale, or role-mismatched authority uses the same
+`RESOURCE_NOT_FOUND` outcome and produces no protected mutation. HTTP translation, session
+authentication, policy-required audit appends, and public Workspace APIs remain owned by
+later Phase 1 issues.
+
 ## 5. Account and membership states
 
 Account state and workspace membership state are separate.

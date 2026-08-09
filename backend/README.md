@@ -1,6 +1,6 @@
 # F2S Backend
 
-This directory contains the FastAPI modular-monolith foundation and the first two PostgreSQL persistence slices. It defines identity/workspace foundations plus digest-only session, activation, recovery, ownership-transfer, and audit records. Authentication workflows and endpoints, password hashing, transfer behavior, finance, farming, and background jobs remain out of scope.
+This directory contains the FastAPI modular-monolith foundation and the first two PostgreSQL persistence slices. It defines identity/workspace foundations, digest-only security and audit records, and the first Workspace Access authorization/repository boundary. Authentication workflows and endpoints, password hashing, transfer behavior, finance, farming, and background jobs remain out of scope.
 
 ## Boundaries
 
@@ -8,12 +8,14 @@ This directory contains the FastAPI modular-monolith foundation and the first tw
 app/
 |-- api/       # HTTP and operational transport boundary
 |-- core/      # Small application-wide technical configuration
-|-- infrastructure/database/ # SQLAlchemy mappings and transaction adapters
-|-- modules/   # Future business modules and their public contracts
+|-- infrastructure/database/ # SQLAlchemy mappings, repositories, and transactions
+|-- modules/   # Framework-free business policy and public contracts
 `-- main.py    # Application factory and ASGI entry point
 ```
 
 `migrations/` contains reviewed Alembic revisions. Domain module code remains independent of SQLAlchemy; persistence mappings stay in the outer infrastructure layer.
+
+Workspace Access owns the immutable `AuthorizationContext` and the Admin, Contributor, and Advisor capability matrix. The SQLAlchemy adapter derives context from current database state, revalidates it for every protected operation, and includes `workspace_id` in each protected read and mutation. Public protected repository methods cannot be called without context. Restricted administration projections require their named capability, and missing or foreign resource identifiers share the safe `RESOURCE_NOT_FOUND` outcome.
 
 Future module domain code must not import FastAPI, SQLAlchemy or `app.api`. Cross-module access must use documented public contracts; direct imports from another module's internals and circular dependencies remain prohibited by [ADR-001](../docs/adr/ADR-001-modular-monolith.md). FastAPI is limited to the HTTP and application boundary by [ADR-003](../docs/adr/ADR-003-use-fastapi.md).
 
@@ -82,4 +84,4 @@ $env:F2S_RUN_POSTGRES_TESTS = "1"
 uv run --frozen pytest
 ```
 
-CI provisions a clean PostgreSQL 18 service and always runs clean/incremental migration, downgrade, transaction rollback, digest/expiry/lifecycle, same-workspace, index, and relational-constraint tests.
+CI provisions a clean PostgreSQL 18 service and always runs clean/incremental migration, downgrade, transaction rollback, digest/expiry/lifecycle, authorization decision-table, two-workspace repository, same-workspace, index, and relational-constraint tests.

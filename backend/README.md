@@ -9,6 +9,18 @@ revocation, logout, reauthenticated password change, and concealed single-use ac
 recovery. Production activation/recovery delivery, distributed authentication counters,
 ownership transfer, finance, farming, and background jobs remain out of scope.
 
+Workspace selection and settings are available at `GET /api/v1/me/workspaces`,
+`GET /api/v1/workspaces/{workspace_id}`, and
+`PATCH /api/v1/workspaces/{workspace_id}`. The directory returns only Active memberships in
+Active workspaces for an Active account. Every active member can read the safe workspace
+reference and explicit module flags; only Admins receive profile-administration fields or
+can mutate settings. PATCH requires the exact browser Origin, strict JSON, and a current
+`If-Match: "vN"` workspace ETag. A successful update returns the new ETag. Missing and stale
+preconditions return `428 PRECONDITION_REQUIRED` and `412 VERSION_MISMATCH`, respectively.
+Workspace type supplies creation defaults but never overrides explicit module flags. Disabling
+a module retains its configuration row and historical data; changing type, name, or modules
+preserves the workspace ID and writes bounded audit evidence.
+
 ## Boundaries
 
 ```text

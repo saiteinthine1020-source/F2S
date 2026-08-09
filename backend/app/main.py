@@ -15,6 +15,8 @@ from app.api.health import router as health_router
 from app.api.member_activation import router as member_activation_router
 from app.api.security import Unauthenticated
 from app.api.sessions import router as sessions_router
+from app.api.workspace_settings import PreconditionRequired
+from app.api.workspace_settings import router as workspace_settings_router
 from app.core.config import RuntimeEnvironment, Settings
 from app.infrastructure.database.session import create_database_engine, create_session_factory
 from app.modules.account_security import (
@@ -40,7 +42,11 @@ from app.modules.member_activation import (
     RejectingActivationDelivery,
 )
 from app.modules.sessions import DevelopmentLoginAbuseControl, RejectingLoginAbuseControl
-from app.modules.workspace_access import AuthorizationDenied, DenialCode
+from app.modules.workspace_access import (
+    AuthorizationDenied,
+    DenialCode,
+    WorkspaceVersionMismatch,
+)
 
 APP_TITLE = "F2S API"
 APP_VERSION = "0.1.0"
@@ -103,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(member_activation_router)
     application.include_router(sessions_router)
     application.include_router(account_security_router)
+    application.include_router(workspace_settings_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[effective_settings.frontend_origin],
@@ -186,6 +193,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 if not_found
                 else "The operation is not permitted."
             ),
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(PreconditionRequired)
+    async def precondition_required(request: Request, error: PreconditionRequired) -> Response:
+        del error
+        return safe_error(
+            status_code=428,
+            code="PRECONDITION_REQUIRED",
+            message="A current resource version is required.",
+            correlation_id=correlation_for(request),
+        )
+
+    @application.exception_handler(WorkspaceVersionMismatch)
+    async def workspace_version_mismatch(
+        request: Request, error: WorkspaceVersionMismatch
+    ) -> Response:
+        del error
+        return safe_error(
+            status_code=412,
+            code="VERSION_MISMATCH",
+            message="The resource version is no longer current.",
             correlation_id=correlation_for(request),
         )
 

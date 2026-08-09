@@ -30,9 +30,9 @@ from app.modules.bootstrap.service import (
     BootstrapRepository,
     BootstrapResult,
     BootstrapUnavailable,
-    ModuleCode,
     PreparedBootstrap,
 )
+from app.modules.workspace_access.configuration import ModuleCode
 
 
 class SqlAlchemyBootstrapRepository(BootstrapRepository):

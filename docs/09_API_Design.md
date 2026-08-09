@@ -152,6 +152,37 @@ Phase 1 workspace and membership routes are:
 
 Bootstrap, workspace creation, member creation, activation restart, recovery confirmation, and ownership-transfer confirmation define explicit idempotency and concurrency behavior. Generic membership mutation never creates a second Admin, removes the sole owner, or transfers ownership.
 
+### 6.1 Implemented workspace selection and settings contract
+
+`GET /api/v1/me/workspaces` returns only Active memberships whose account and workspace are
+also Active. Each item contains `membership_id`, current `role`, and a safe workspace
+reference: stable `id`, `name`, `type`, `base_currency_code`, `timezone`,
+`preferred_language`, and `version`. It never returns administration/profile fields.
+
+`GET /api/v1/workspaces/{workspace_id}` requires an Active membership and returns that same
+safe workspace reference plus the complete explicit module configuration. An Admin also
+receives `administration` with nullable `description`, `address`,
+`business_category_code`, and `farm_type_code`; Contributor and Advisor responses omit that
+property. The response is `Cache-Control: no-store` and carries `ETag: "vN"` for the
+workspace aggregate version.
+
+`PATCH /api/v1/workspaces/{workspace_id}` is an Admin-only strict-JSON browser mutation. It
+accepts any documented subset of `name`, `type`, `base_currency_code`, `timezone`,
+`preferred_language`, the four administration fields, and `modules` entries containing a
+known code and Boolean `enabled`. Omitted fields remain unchanged; explicit null is accepted
+only for nullable administration fields. The exact configured Origin and `If-Match: "vN"`
+are required. Missing If-Match returns `428 PRECONDITION_REQUIRED`; malformed or stale values
+return `412 VERSION_MISMATCH`. The repository locks and compares the workspace aggregate,
+applies the complete validated state atomically, increments versions, writes settings/rename/
+module audit evidence as applicable, and returns the complete Admin representation with the
+new ETag.
+
+Workspace type controls defaults only when a workspace is created. Changing type does not
+reset explicit module flags, replace the stable workspace ID, delete configuration rows, or
+reclassify history. Disabling a module makes it unavailable to future protected module routes
+but retains existing records and configuration for later re-enablement. Unknown or foreign
+workspace identifiers use the ordinary concealed `RESOURCE_NOT_FOUND` response.
+
 ## 7. Workspace context and authorisation
 
 All workspace business paths begin:

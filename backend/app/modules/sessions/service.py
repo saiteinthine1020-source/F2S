@@ -7,12 +7,14 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.identity_security import (
+    AbuseSubject,
     Argon2idPasswordService,
     IssuedOpaqueCredential,
     OpaqueCredentialPurpose,
     OpaqueCredentialService,
     PasswordDigest,
     SecretText,
+    SubjectAbuseControl,
     normalize_email,
 )
 
@@ -84,6 +86,14 @@ class RotationLease:
     absolute_expires_at: datetime
 
 
+class RefreshRateLimited(Exception):
+    """Safe refresh throttle result without session or counter detail."""
+
+    def __init__(self, retry_after: timedelta | None) -> None:
+        self.retry_after = retry_after
+        super().__init__("RATE_LIMITED")
+
+
 @dataclass(frozen=True, slots=True)
 class AuthenticatedSession:
     account_id: UUID
@@ -126,11 +136,13 @@ class SessionService:
         credentials: OpaqueCredentialService,
         passwords: Argon2idPasswordService,
         dummy_password_digest: PasswordDigest,
+        refresh_abuse: SubjectAbuseControl | None = None,
     ) -> None:
         self._repository = repository
         self._credentials = credentials
         self._passwords = passwords
         self._dummy_password_digest = dummy_password_digest
+        self._refresh_abuse = refresh_abuse
 
     async def login(self, attempt: LoginAttempt) -> SessionTokens | None:
         normalized_email: str | None
@@ -164,6 +176,16 @@ class SessionService:
         lease = await self._repository.prepare_rotation(attempt)
         if lease is None:
             return None
+        if self._refresh_abuse is not None:
+            family_subject = AbuseSubject(
+                self._credentials.fingerprint(
+                    OpaqueCredentialPurpose.REFRESH_CREDENTIAL,
+                    SecretText(f"family:{lease.family_id}"),
+                )
+            )
+            decision = await self._refresh_abuse.permit(family_subject, now=attempt.now)
+            if not decision.allowed:
+                raise RefreshRateLimited(decision.retry_after)
         bundle = self._issue_bundle(attempt.now, lease.absolute_expires_at)
         await self._repository.complete_rotation(
             lease,

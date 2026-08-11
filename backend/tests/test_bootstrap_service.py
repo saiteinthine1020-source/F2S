@@ -97,11 +97,18 @@ def test_api_validation_and_correlation_errors_are_safe() -> None:
         "workspace_timezone": "UTC",
     }
     with TestClient(create_app(settings)) as client:
-        validation = client.post("/api/v1/setup/bootstrap", json=payload)
+        validation = client.post(
+            "/api/v1/setup/bootstrap",
+            json=payload,
+            headers={"Origin": settings.frontend_origin},
+        )
         correlation = client.post(
             "/api/v1/setup/bootstrap",
             json=payload,
-            headers={"X-Correlation-ID": "unsafe malformed correlation"},
+            headers={
+                "Origin": settings.frontend_origin,
+                "X-Correlation-ID": "unsafe malformed correlation",
+            },
         )
 
     assert validation.status_code == 422
@@ -113,3 +120,23 @@ def test_api_validation_and_correlation_errors_are_safe() -> None:
     assert "unsafe malformed" not in correlation.text
     assert correlation.headers["Cache-Control"] == "no-store"
     assert correlation.headers["X-Correlation-ID"] == correlation.json()["error"]["correlation_id"]
+
+
+def test_bootstrap_mutation_requires_exact_origin_and_json() -> None:
+    settings = Settings(environment=RuntimeEnvironment.TEST, debug=False, docs_enabled=False)
+    with TestClient(create_app(settings)) as client:
+        hostile = client.post(
+            "/api/v1/setup/bootstrap",
+            headers={"Origin": "https://hostile.example"},
+            json={},
+        )
+        form = client.post(
+            "/api/v1/setup/bootstrap",
+            headers={"Origin": settings.frontend_origin},
+            data={"display_name": "Synthetic Admin"},
+        )
+
+    assert hostile.status_code == 403
+    assert hostile.json()["error"]["code"] == "ORIGIN_DENIED"
+    assert form.status_code == 415
+    assert form.json()["error"]["code"] == "UNSUPPORTED_MEDIA_TYPE"

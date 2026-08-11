@@ -2,7 +2,7 @@
 
 import math
 import unicodedata
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Cookie, Depends, Header, Request, Response
@@ -23,6 +23,7 @@ from app.modules.sessions import (
     LoginAttempt,
     LogoutAttempt,
     LogoutScope,
+    RefreshRateLimited,
     RotationAttempt,
     SessionService,
     SessionTokens,
@@ -75,6 +76,7 @@ def service_for(request: Request, session: AsyncSession) -> SessionService:
         request.app.state.opaque_credentials,
         request.app.state.password_service,
         request.app.state.dummy_password_digest,
+        request.app.state.refresh_abuse,
     )
 
 
@@ -145,6 +147,18 @@ def _login_subjects(request: Request, email: str) -> tuple[AbuseSubject, AbuseSu
     return account_subject, network_subject
 
 
+def _rate_limited(request: Request, message: str, retry_after: timedelta | None) -> Response:
+    error = safe_error(
+        status_code=429,
+        code="RATE_LIMITED",
+        message=message,
+        correlation_id=request.state.correlation_id,
+    )
+    if retry_after is not None:
+        error.headers["Retry-After"] = str(max(1, math.ceil(retry_after.total_seconds())))
+    return error
+
+
 @router.post("/login", response_model=SessionEnvelope)
 async def login(
     payload: LoginRequest,
@@ -162,17 +176,7 @@ async def login(
         now=now,
     )
     if not decision.allowed:
-        error = safe_error(
-            status_code=429,
-            code="RATE_LIMITED",
-            message="Too many authentication attempts.",
-            correlation_id=request.state.correlation_id,
-        )
-        if decision.retry_after is not None:
-            error.headers["Retry-After"] = str(
-                max(1, math.ceil(decision.retry_after.total_seconds()))
-            )
-        return error
+        return _rate_limited(request, "Too many authentication attempts.", decision.retry_after)
     tokens = await service_for(request, session).login(
         LoginAttempt(
             email=payload.email,
@@ -202,14 +206,28 @@ async def refresh(
     refresh_value, csrf_value = _presented(refresh_cookie), _presented(csrf_header)
     if refresh_value is None or csrf_value is None:
         return _session_error(request, "The session is unavailable.")
-    tokens = await service_for(request, session).rotate(
-        RotationAttempt(
-            refresh=refresh_value,
-            csrf=csrf_value,
-            correlation_id=request.state.correlation_id,
-            now=datetime.now(UTC),
+    now = datetime.now(UTC)
+    network = request.client.host if request.client is not None else "unknown"
+    network_subject = AbuseSubject(
+        request.app.state.keyed_digests.digest(
+            DigestPurpose.REFRESH_CREDENTIAL,
+            SecretText(f"network:{network}"),
         )
     )
+    decision = await request.app.state.refresh_network_abuse.permit(network_subject, now=now)
+    if not decision.allowed:
+        return _rate_limited(request, "Too many session refresh attempts.", decision.retry_after)
+    try:
+        tokens = await service_for(request, session).rotate(
+            RotationAttempt(
+                refresh=refresh_value,
+                csrf=csrf_value,
+                correlation_id=request.state.correlation_id,
+                now=now,
+            )
+        )
+    except RefreshRateLimited as error:
+        return _rate_limited(request, "Too many session refresh attempts.", error.retry_after)
     if tokens is None:
         return _session_error(request, "The session is unavailable.")
     return _session_response(response, tokens)

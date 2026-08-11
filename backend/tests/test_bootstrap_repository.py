@@ -191,7 +191,10 @@ def test_concurrent_bootstrap_has_one_complete_owner_and_permanent_closure(
         )
         later = client.post(
             "/api/v1/setup/bootstrap",
-            headers={"X-Correlation-ID": correlation_id},
+            headers={
+                "Origin": migrated_database.frontend_origin,
+                "X-Correlation-ID": correlation_id,
+            },
             json={
                 "display_name": "Later Attempt",
                 "email": "later@example.invalid",

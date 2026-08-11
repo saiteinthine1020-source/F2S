@@ -2,6 +2,8 @@
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import timedelta
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -32,9 +34,13 @@ from app.modules.audit.correlation import CorrelationIdError, resolve_correlatio
 from app.modules.bootstrap.service import BootstrapUnavailable
 from app.modules.identity_security import (
     Argon2idPasswordService,
+    DevelopmentDualSubjectAbuseControl,
+    DevelopmentSubjectAbuseControl,
     KeyedDigestService,
     OpaqueCredentialService,
     PasswordPolicyError,
+    RejectingDualSubjectAbuseControl,
+    RejectingSubjectAbuseControl,
     SecretBytes,
     SecretText,
 )
@@ -97,10 +103,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if effective_settings.environment is RuntimeEnvironment.PRODUCTION
         else DevelopmentActivationOutbox()
     )
+    application.state.activation_abuse = (
+        RejectingDualSubjectAbuseControl()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentDualSubjectAbuseControl(
+            subject_limit=5,
+            network_limit=20,
+            window=timedelta(hours=1),
+        )
+    )
     application.state.login_abuse = (
         RejectingLoginAbuseControl()
         if effective_settings.environment is RuntimeEnvironment.PRODUCTION
         else DevelopmentLoginAbuseControl()
+    )
+    application.state.refresh_abuse = (
+        RejectingSubjectAbuseControl()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentSubjectAbuseControl(limit=30, window=timedelta(minutes=5))
+    )
+    application.state.refresh_network_abuse = (
+        RejectingSubjectAbuseControl()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentSubjectAbuseControl(limit=120, window=timedelta(minutes=5))
     )
     application.state.recovery_delivery = (
         RejectingRecoveryDelivery()
@@ -148,14 +173,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 request.headers.get("X-Correlation-ID")
             )
         except CorrelationIdError as error:
-            return safe_error(
+            early_response = safe_error(
                 status_code=400,
                 code=error.code.value,
                 message="The correlation identifier is invalid.",
                 correlation_id=error.correlation_id,
             )
+            _apply_security_headers(
+                early_response, request.url.path, effective_settings.environment
+            )
+            return early_response
+        try:
+            request_host = urlsplit(f"//{request.headers.get('host', '')}").hostname
+        except ValueError:
+            request_host = None
+        if request_host is None or request_host.lower() not in effective_settings.api_allowed_hosts:
+            denied = safe_error(
+                status_code=400,
+                code="INVALID_HOST",
+                message="The request host is not permitted.",
+                correlation_id=request.state.correlation_id,
+            )
+            denied.headers["X-Correlation-ID"] = str(request.state.correlation_id)
+            _apply_security_headers(denied, request.url.path, effective_settings.environment)
+            return denied
         response = await call_next(request)
         response.headers["X-Correlation-ID"] = str(request.state.correlation_id)
+        _apply_security_headers(response, request.url.path, effective_settings.environment)
         return response
 
     @application.exception_handler(RequestValidationError)
@@ -288,7 +332,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             correlation_id=correlation_for(request),
         )
 
+    @application.exception_handler(Exception)
+    async def unexpected_error(request: Request, error: Exception) -> Response:
+        """Conceal exception text and implementation details at the HTTP boundary."""
+        del error
+        return safe_error(
+            status_code=500,
+            code="INTERNAL_ERROR",
+            message="The request could not be completed.",
+            correlation_id=correlation_for(request),
+        )
+
     return application
 
 
 app = create_app()
+
+
+def _apply_security_headers(
+    response: Response,
+    path: str,
+    environment: RuntimeEnvironment,
+) -> None:
+    """Apply one authoritative, deterministic set of browser response protections."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+    )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    if path.startswith("/api/") or path.startswith("/health/"):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        )
+        response.headers["Cache-Control"] = "no-store"
+    if environment is RuntimeEnvironment.PRODUCTION:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000"

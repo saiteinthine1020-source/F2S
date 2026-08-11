@@ -1,6 +1,7 @@
 """Typed runtime configuration with production fail-closed rules."""
 
 from enum import StrEnum
+from ipaddress import ip_address
 from typing import Self
 from urllib.parse import urlsplit
 
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
     database_sslmode: DatabaseSslMode = DatabaseSslMode.DISABLE
     identity_digest_key: SecretStr
     frontend_origin: str = "http://127.0.0.1:5173"
+    api_allowed_hosts: tuple[str, ...] = ("127.0.0.1", "localhost", "testserver")
 
     @field_validator("database_host")
     @classmethod
@@ -84,9 +86,34 @@ class Settings(BaseSettings):
             or parsed.path not in {"", "/"}
             or parsed.query
             or parsed.fragment
+            or "*" in parsed.hostname
         ):
             raise ValueError("frontend origin must be one exact HTTP(S) origin")
         return value.rstrip("/")
+
+    @field_validator("api_allowed_hosts")
+    @classmethod
+    def require_exact_allowed_hosts(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Require bounded exact Host values without ports, schemes, or wildcards."""
+        if not value or len(value) > 16:
+            raise ValueError("one through 16 API allowed hosts are required")
+        normalized: list[str] = []
+        for host in value:
+            candidate = host.strip().lower()
+            if (
+                not candidate
+                or candidate != host
+                or "*" in candidate
+                or ":" in candidate
+                or "://" in candidate
+                or "/" in candidate
+                or candidate.endswith(".")
+            ):
+                raise ValueError("API allowed hosts must be exact hostnames or IP addresses")
+            normalized.append(candidate)
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("API allowed hosts must be unique")
+        return tuple(normalized)
 
     @model_validator(mode="after")
     def reject_unsafe_production_settings(self) -> Self:
@@ -105,6 +132,16 @@ class Settings(BaseSettings):
             and not self.frontend_origin.startswith("https://")
         ):
             raise ValueError("frontend origin must use HTTPS in production")
+        if self.environment is RuntimeEnvironment.PRODUCTION:
+            frontend_host = urlsplit(self.frontend_origin).hostname
+            if frontend_host is None or _is_local_or_placeholder_host(frontend_host):
+                raise ValueError("frontend origin must use a production hostname")
+            if any(_is_local_or_placeholder_host(host) for host in self.api_allowed_hosts):
+                raise ValueError("API allowed hosts must be explicit production hostnames")
+            if _looks_like_placeholder(self.database_password.get_secret_value()):
+                raise ValueError("database password must not be placeholder material")
+            if _looks_like_placeholder(self.identity_digest_key.get_secret_value()):
+                raise ValueError("identity digest key must not be placeholder material")
         return self
 
     @property
@@ -119,3 +156,19 @@ class Settings(BaseSettings):
             database=self.database_name,
             query={"sslmode": self.database_sslmode.value},
         )
+
+
+def _is_local_or_placeholder_host(host: str) -> bool:
+    candidate = host.lower()
+    if candidate in {"localhost", "testserver"} or candidate.endswith(".invalid"):
+        return True
+    try:
+        return ip_address(candidate).is_loopback
+    except ValueError:
+        return False
+
+
+def _looks_like_placeholder(value: str) -> bool:
+    normalized = value.strip().lower()
+    markers = ("changeme", "change-me", "placeholder", "replace-with", "synthetic")
+    return any(marker in normalized for marker in markers)

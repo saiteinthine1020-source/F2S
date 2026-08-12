@@ -37,6 +37,8 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Audit Event Catalogue](22_Audit_Event_Catalogue.md) | Defines the implemented Phase 1 audit vocabulary, append-only transaction contract, correlation handling, privacy boundary, and evidence. | Baseline |
 | [Bootstrap Operator Procedure](23_Bootstrap_Operator_Procedure.md) | Defines safe one-time installation preparation, completion, module defaults, verification, failure handling, and permanent closure. | Baseline |
 | [Phase 1 Security Hardening Evidence](24_Phase_1_Security_Hardening.md) | Maps implemented browser, API, authentication, configuration, and runtime hardening to tests, operational evidence, alerts, and residual production gates. | Baseline |
+| [Phase 1 Test Traceability](25_Phase_1_Traceability.md) | Maps Phase 1 requirements, stories, use cases, ADRs, risks, fixtures, and executable evidence. | Baseline |
+| [Phase 1 Exit Report](26_Phase_1_Exit_Report.md) | Records the Phase 1 handoff gates, reproduction commands, honest status, and explicit later-phase deferrals. | Pending CI evidence |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
 | [ADR-002: Use PostgreSQL](adr/ADR-002-use-postgresql.md) | Selects the primary relational database and defines ownership, transaction, privilege, backup, and fitness rules. | Approved |
 | [ADR-003: Use FastAPI](adr/ADR-003-use-fastapi.md) | Selects FastAPI for the typed HTTP boundary while preserving framework-independent domain modules. | Approved |

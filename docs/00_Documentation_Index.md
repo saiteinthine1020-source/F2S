@@ -39,6 +39,8 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [Phase 1 Security Hardening Evidence](24_Phase_1_Security_Hardening.md) | Maps implemented browser, API, authentication, configuration, and runtime hardening to tests, operational evidence, alerts, and residual production gates. | Baseline |
 | [Phase 1 Test Traceability](25_Phase_1_Traceability.md) | Maps Phase 1 requirements, stories, use cases, ADRs, risks, fixtures, and executable evidence. | Baseline |
 | [Phase 1 Exit Report](26_Phase_1_Exit_Report.md) | Records the Phase 1 handoff gates, reproduction commands, honest status, and explicit later-phase deferrals. | Pending CI evidence |
+| [Household Finance Design](27_Household_Finance_Design.md) | Defines the authoritative Phase 2 category, canonical event, approval, correction, review, receipt, summary, API, UI, audit, migration, and test contract. | Approved |
+| [Phase 2 Household Finance Traceability](28_Phase_2_Traceability.md) | Maps FR-FIN-001 through FR-FIN-010 and cross-cutting gates to Phase 2 decisions, issues, and required executable evidence. | Baseline |
 | [ADR-001: Use a Modular Monolith](adr/ADR-001-modular-monolith.md) | Records the first architecture decision. | Approved |
 | [ADR-002: Use PostgreSQL](adr/ADR-002-use-postgresql.md) | Selects the primary relational database and defines ownership, transaction, privilege, backup, and fitness rules. | Approved |
 | [ADR-003: Use FastAPI](adr/ADR-003-use-fastapi.md) | Selects FastAPI for the typed HTTP boundary while preserving framework-independent domain modules. | Approved |
@@ -48,6 +50,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [ADR-014: Use Opaque Rotating Server-Side Sessions](adr/ADR-014-opaque-server-side-sessions.md) | Defines revocable access and rotating refresh-session behavior. | Approved |
 | [ADR-015: Use Controlled Bootstrap, Activation, and Recovery Lifecycles](adr/ADR-015-bootstrap-activation-and-recovery.md) | Defines first setup, member activation, and recovery boundaries. | Approved |
 | [ADR-016: Model Workspace Type Separately from Enabled Modules](adr/ADR-016-workspace-types-and-modules.md) | Defines workspace types, module configuration, and change safety. | Approved |
+| [ADR-018: Use Approval-Gated Canonical Financial Events and Append-Only Corrections](adr/ADR-018-approval-gated-canonical-financial-events.md) | Defines one canonical cash event, separate approval/posting states, official-dataset eligibility, and history-preserving correction. | Approved |
 | [GitHub Milestones](project_management/GitHub_Milestones.md) | Defines all 12 delivery milestones. | Baseline |
 | [First 20 GitHub Issues](project_management/First_20_GitHub_Issues.md) | Proposes the first ordered, independently reviewable issues. | Baseline |
 | [Repository Initialisation](project_management/Repository_Initialisation.md) | Provides exact commands for local Git and GitHub initialisation. | Baseline |

@@ -47,8 +47,8 @@ Priority terms are:
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| FIN-001 | Users must be able to record categorised household and farm income with amount, currency, date, source, payment method, references, and audit metadata. | Must |
-| FIN-002 | Users must be able to record categorised household and farm expenses with amount, currency, date, payee, payment method, references, receipt, and audit metadata. | Must |
+| FIN-001 | Users must be able to record categorised household, farm, and business income with amount, currency, date, source, payment method, references, and audit metadata. | Must |
+| FIN-002 | Users must be able to record categorised household, farm, and business expenses with amount, currency, date, payee, payment method, references, receipt, and audit metadata. | Must |
 | FIN-003 | Negative transaction values must be rejected unless a documented adjustment or reversal mechanism applies. | Must |
 | FIN-004 | The model must avoid manually duplicating a single financial event across modules. | Must |
 | FIN-005 | Money must use a documented decimal-safe storage and rounding strategy; `FLOAT` and `REAL` are prohibited. | Must |

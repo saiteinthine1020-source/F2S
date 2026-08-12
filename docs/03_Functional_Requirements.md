@@ -69,7 +69,7 @@ membership and is not a fourth role.
 | FR-FIN-001 | An authorized user shall create income with category, household/farm/business classification, decimal amount, currency, date, source, payment method, optional reference, notes, and audit metadata. | FIN-001, FIN-005 | Must | Phase 2 | Phase 1; numeric-storage decision | A valid record is workspace-scoped, visible in permitted views, and contributes once to the correct totals after approval when required. |
 | FR-FIN-002 | An authorized user shall create an expense with category, household/farm/business classification, decimal amount, currency, date, payee, payment method, optional reference, receipt, notes, and audit metadata. | FIN-002, FIN-005 | Must | Phase 2 | Phase 1; upload design | A valid record is workspace-scoped and contributes once after approval when required; unsafe attachments and unauthorized access are rejected. |
 | FR-FIN-003 | The system shall reject negative amounts unless the operation uses a separately documented adjustment or reversal workflow. | FIN-003 | Must | Phase 2 | Adjustment decision | Ordinary create/update requests cannot store negative transaction values. |
-| FR-FIN-004 | Users shall filter authorised transactions by period, category, type, payment method, farming link, and other documented fields. | FIN-001, FIN-002 | Must | Phase 2 | Query/API design | Results and totals match the filter and never include another household. |
+| FR-FIN-004 | Users shall filter authorised transactions by period, category, type, payment method, farming link, and other documented fields. | FIN-001, FIN-002 | Must | Phase 2 | Query/API design | Results and permitted totals match the filter and never include another workspace. |
 | FR-FIN-005 | A financial event linked from remittance, sale, debt, receivable, or farming workflows shall have one canonical representation or an explicit reference that prevents double counting. | FIN-004, REM-002, SALE-002 | Must | Phase 2 | Data model | Reconciliation tests show one real event contributes once to cash flow and relevant balances. |
 | FR-FIN-006 | Corrections, reversals, archival, and attachment changes shall preserve audit history and shall not hard-delete linked financial facts through an ordinary action. | DATA-002, AUD-001 | Must | Phase 2 | Correction and archival policy | The current state and prior action history remain attributable after a permitted correction. |
 | FR-FIN-007 | A Contributor-created financial record shall begin Pending and shall not affect any official dataset before Admin approval. | FIN-006, PR-008 | Must | Phase 2 | Phase 1 role policy | Pending values are absent from official balances, dashboards, reports, exports, forecasts, and AI inputs. |
@@ -187,7 +187,7 @@ membership and is not a fourth role.
 | --- | --- | --- | --- |
 | Authorization and workspace isolation | FR-AUTHZ-001 to FR-AUTHZ-006 | IAM-004 to IAM-006, SEC-001 | Phase 1 |
 | Identity and workspace | FR-IAM-001 to FR-WS-002 | IAM-001 to IAM-010, WS-001 to WS-003 | Phase 1 |
-| Household finance | FR-FIN-001 to FR-FIN-006 | FIN-001 to FIN-005 | Phase 2 |
+| Household finance | FR-FIN-001 to FR-FIN-010 | FIN-001 to FIN-009; PR-008; IAM-004; DATA-002; AUD-001 | Phase 2 |
 | Crop catalogue and investments | FR-FARM-001 to FR-FARM-010 | FARM-001 to FARM-009 | Phase 3 |
 | Costs, harvests, sales, calculations | FR-COST-001 to FR-CALC-003 | COST-001 to SALE-003, CALC-001 to CALC-002 | Phase 4 |
 | Analytics, quality, planning | FR-DQ-001 to FR-REC-001 | ANALYTICS-001 to REC-002 | Phase 5 |

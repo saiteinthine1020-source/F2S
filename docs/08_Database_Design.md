@@ -12,7 +12,8 @@ It follows [ADR-001](adr/ADR-001-modular-monolith.md), [ADR-002](adr/ADR-002-use
 2. Every workspace-protected row, including child/join/job/artifact rows, stores direct non-null `workspace_id`.
 3. Protected parent-child relationships include `workspace_id` in composite foreign keys so cross-workspace references fail in PostgreSQL.
 4. UUID primary keys are opaque and never substitute for authorisation.
-5. Canonical financial events are immutable postings; corrections append reversal/replacement facts.
+5. Approved canonical financial postings are immutable; eligible Pending submissions are
+   versioned, and corrections append reversal/replacement facts.
 6. Calculation owns derived financial results; SQL, reports, frontend, and AI do not duplicate formulas.
 7. Money, rates, ratios, quantities, currencies, units, and rounding follow ADR-008.
 8. Cancellation, archive, reversal, expiry, and deactivation have distinct meanings; generic hard deletion is not a lifecycle.
@@ -153,6 +154,13 @@ Rules:
 
 `financial_event_files` joins events to `protected_files` with workspace, attachment role, add/remove evidence, and active-link uniqueness.
 
+`financial_event_reviews` stores workspace-scoped Advisor/Admin comment and flag artifacts.
+Comments are append-only. Flags use `OPEN/RESOLVED` state with resolver evidence. Reviews
+never change event approval, posting state, or official totals. The exact Phase 2 states,
+correction links, category requirement, and receipt lifecycle are governed by the
+[Household Finance Design](27_Household_Finance_Design.md) and
+[ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md).
+
 ## 8. Entity catalogue: farming and funds
 
 | Entity / owner | Key content | Critical rules and indexes |
@@ -195,7 +203,7 @@ Every workspace-protected entity below has direct `workspace_id`; all protected 
 | Module | Direct workspace-protected entities |
 | --- | --- |
 | Workspace Access | workspaces, memberships, modules, ownership transfers, locations |
-| Household Finance | finance categories, financial events, financial-event files |
+| Household Finance | finance categories, financial events, financial-event files, financial-event reviews |
 | Farming Investments | crop categories, farming investments |
 | Farm Operations | farm costs, cost allocations, harvests, crop sales |
 | Funds and Obligations | remittances/allocations, debts/payments, receivables/payments |

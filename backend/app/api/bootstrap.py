@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.api.browser_security import BrowserRequest, require_browser_request
 from app.infrastructure.database.repositories.bootstrap import SqlAlchemyBootstrapRepository
 from app.infrastructure.database.session import transactional_session
 from app.modules.bootstrap.service import BootstrapCommand, BootstrapService
@@ -62,6 +63,7 @@ async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
 
 
 Session = Annotated[AsyncSession, Depends(database_session)]
+BrowserBoundary = Annotated[BrowserRequest, Depends(require_browser_request)]
 
 
 def service_for(session: AsyncSession) -> BootstrapService:
@@ -90,7 +92,9 @@ async def complete_bootstrap(
     response: Response,
     payload: BootstrapRequest,
     session: Session,
+    browser: BrowserBoundary,
 ) -> BootstrapEnvelope:
+    del browser
     response.headers["Cache-Control"] = "no-store"
     result = await service_for(session).complete(
         BootstrapCommand(

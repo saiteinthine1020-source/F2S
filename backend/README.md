@@ -167,13 +167,14 @@ No `.env` file is loaded automatically by the application. Settings use explicit
 | `F2S_DATABASE_SSLMODE` | `disable` | Production requires `verify-full`; disable is local/test only |
 | `F2S_IDENTITY_DIGEST_KEY` | none | Required secret with at least 32 UTF-8 bytes; use random environment-specific material |
 | `F2S_FRONTEND_ORIGIN` | `http://127.0.0.1:5173` | Exact browser origin; production requires explicit HTTPS |
+| `F2S_API_ALLOWED_HOSTS` | `["127.0.0.1","localhost","testserver"]` | Exact Host allowlist; production requires explicit non-local hostnames |
 
 Unknown settings passed to the settings model and unsupported values fail validation. A raw database URL is deliberately unsupported so reserved characters are encoded safely and the password is not copied into logs.
 
 ## Run locally
 
 ```powershell
-uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run --frozen uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-server-header --no-access-log
 ```
 
 Apply the reviewed schema before running persistence-backed behavior:

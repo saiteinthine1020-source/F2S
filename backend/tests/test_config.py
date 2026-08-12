@@ -107,3 +107,46 @@ def test_production_frontend_origin_requires_https() -> None:
                 "frontend_origin": "http://app.example.invalid",
             }
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("frontend_origin", "https://*.example.com"),
+        ("api_allowed_hosts", ("*",)),
+        ("api_allowed_hosts", ("api.example.com:443",)),
+    ],
+)
+def test_browser_and_host_boundaries_reject_wildcards(field: str, value: object) -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate({**DATABASE_VALUES, field: value})
+
+
+def test_production_rejects_placeholder_hosts_and_secrets() -> None:
+    values: dict[str, object] = {
+        **DATABASE_VALUES,
+        "environment": "production",
+        "database_sslmode": "verify-full",
+        "frontend_origin": "https://app.example.invalid",
+        "api_allowed_hosts": ("api.example.invalid",),
+    }
+    with pytest.raises(ValidationError):
+        Settings.model_validate(values)
+
+
+def test_production_accepts_explicit_hosts_and_non_placeholder_secrets() -> None:
+    settings = Settings.model_validate(
+        {
+            "environment": "production",
+            "database_host": "postgres.internal",
+            "database_name": "f2s",
+            "database_user": "f2s_owner",
+            "database_password": "G7v!p9R2x#K4mQ8zL1wC",
+            "database_sslmode": "verify-full",
+            "identity_digest_key": "ci-verification-key-material-" + ("k" * 32),
+            "frontend_origin": "https://app.f2s.example",
+            "api_allowed_hosts": ("api.f2s.example",),
+        }
+    )
+
+    assert settings.api_allowed_hosts == ("api.f2s.example",)

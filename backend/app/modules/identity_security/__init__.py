@@ -23,6 +23,14 @@ from app.modules.identity_security.credentials import (
     OpaqueCredentialService,
     StoredOpaqueCredential,
 )
+from app.modules.identity_security.endpoint_abuse import (
+    DevelopmentDualSubjectAbuseControl,
+    DevelopmentSubjectAbuseControl,
+    DualSubjectAbuseControl,
+    RejectingDualSubjectAbuseControl,
+    RejectingSubjectAbuseControl,
+    SubjectAbuseControl,
+)
 from app.modules.identity_security.identifiers import normalize_email
 from app.modules.identity_security.passwords import (
     Argon2idParameters,
@@ -47,8 +55,11 @@ __all__ = [
     "Argon2idPasswordService",
     "CredentialLifecycleError",
     "CredentialVerification",
+    "DevelopmentDualSubjectAbuseControl",
+    "DevelopmentSubjectAbuseControl",
     "DigestPurpose",
     "FixedWindowRateLimitPolicy",
+    "DualSubjectAbuseControl",
     "IssuedOpaqueCredential",
     "KeyedDigest",
     "KeyedDigestService",
@@ -66,8 +77,11 @@ __all__ = [
     "RateLimitPolicy",
     "RateLimitRequest",
     "RateLimiter",
+    "RejectingDualSubjectAbuseControl",
+    "RejectingSubjectAbuseControl",
     "SecretBytes",
     "SecretText",
     "StoredOpaqueCredential",
+    "SubjectAbuseControl",
     "normalize_email",
 ]

@@ -1,5 +1,6 @@
 """Admin member provisioning and concealed public activation HTTP boundary."""
 
+import math
 import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal
@@ -22,7 +23,7 @@ from app.infrastructure.database.repositories.workspace_access import (
     SqlAlchemyWorkspaceAccessRepository,
 )
 from app.modules.audit import AuditAction, AuditReason
-from app.modules.identity_security import SecretText
+from app.modules.identity_security import AbuseSubject, DigestPurpose, SecretText
 from app.modules.member_activation import (
     ActivationAttempt,
     MemberActivationService,
@@ -103,6 +104,20 @@ def service_for(request: Request, session: AsyncSession) -> MemberActivationServ
     )
 
 
+def _activation_subjects(request: Request, value: SecretText) -> tuple[AbuseSubject, AbuseSubject]:
+    network = request.client.host if request.client is not None else "unknown"
+    digests = request.app.state.keyed_digests
+    return (
+        AbuseSubject(digests.digest(DigestPurpose.ACTIVATION_CHALLENGE, value)),
+        AbuseSubject(
+            digests.digest(
+                DigestPurpose.ACTIVATION_CHALLENGE,
+                SecretText(f"network:{network}"),
+            )
+        ),
+    )
+
+
 @router.post(
     "/workspaces/{workspace_id}/members",
     response_model=ProvisionedMemberEnvelope,
@@ -115,7 +130,9 @@ async def provision_member(
     response: Response,
     actor_account_id: AuthenticatedAccountId,
     session: Session,
+    browser: BrowserBoundary,
 ) -> ProvisionedMemberEnvelope:
+    del browser
     context = await SqlAlchemyWorkspaceAccessRepository(session).resolve_context(
         actor_account_id=actor_account_id,
         workspace_id=workspace_id,
@@ -199,16 +216,32 @@ async def activate_account(
     browser: BrowserBoundary,
 ) -> ActivationEnvelope | Response:
     del browser
+    now = datetime.now(UTC)
+    activation_value = SecretText(payload.value.get_secret_value())
+    subject, network = _activation_subjects(request, activation_value)
+    decision = await request.app.state.activation_abuse.permit(subject, network, now=now)
+    if not decision.allowed:
+        error = safe_error(
+            status_code=429,
+            code="RATE_LIMITED",
+            message="Too many activation attempts.",
+            correlation_id=request.state.correlation_id,
+        )
+        if decision.retry_after is not None:
+            error.headers["Retry-After"] = str(
+                max(1, math.ceil(decision.retry_after.total_seconds()))
+            )
+        return error
     outcome = await service_for(request, session).activate(
         ActivationAttempt(
-            value=SecretText(payload.value.get_secret_value()),
+            value=activation_value,
             password=(
                 SecretText(payload.password.get_secret_value())
                 if payload.password is not None
                 else None
             ),
             correlation_id=request.state.correlation_id,
-            now=datetime.now(UTC),
+            now=now,
         )
     )
     if not outcome.activated:

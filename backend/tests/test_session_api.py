@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import RuntimeEnvironment, Settings
 from app.main import create_app
-from app.modules.identity_security import SecretText
+from app.modules.identity_security import DevelopmentSubjectAbuseControl, SecretText
 from app.modules.sessions import SessionTokens
 
 
@@ -144,3 +144,37 @@ def test_failed_refresh_expires_cookie_and_conceals_csrf_details(monkeypatch: ob
     assert response.json()["error"]["code"] == "UNAUTHENTICATED"
     assert "csrf" not in response.text.lower()
     assert "Max-Age=0" in response.headers["set-cookie"]
+
+
+def test_refresh_is_rate_limited_by_concealed_network(monkeypatch: object) -> None:
+    from app.api import sessions as session_api
+
+    settings = Settings(environment=RuntimeEnvironment.TEST, debug=False, docs_enabled=False)
+    tokens = _tokens()
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        session_api,
+        "service_for",
+        lambda request, session: StubSessionService(tokens),
+    )
+    application = create_app(settings)
+    application.state.refresh_network_abuse = DevelopmentSubjectAbuseControl(
+        limit=30, window=timedelta(minutes=5)
+    )
+    with TestClient(application, base_url="https://testserver") as client:
+        client.cookies.set("__Host-f2s_refresh", tokens.refresh.reveal())
+        responses = [
+            client.post(
+                "/api/v1/auth/refresh",
+                headers={
+                    "Origin": settings.frontend_origin,
+                    "X-CSRF-Token": tokens.csrf.reveal(),
+                },
+                json={},
+            )
+            for _ in range(31)
+        ]
+
+    assert [response.status_code for response in responses[:30]] == [200] * 30
+    assert responses[30].status_code == 429
+    assert responses[30].json()["error"]["code"] == "RATE_LIMITED"
+    assert int(responses[30].headers["Retry-After"]) > 0

@@ -4,8 +4,11 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+import pytest
+
 from app.modules.identity_security import (
     Argon2idPasswordService,
+    DevelopmentSubjectAbuseControl,
     KeyedDigestService,
     OpaqueCredentialService,
     PasswordDigest,
@@ -20,6 +23,7 @@ from app.modules.sessions import (
     LoginAttempt,
     LoginCandidate,
     LogoutAttempt,
+    RefreshRateLimited,
     RotationAttempt,
     RotationLease,
     SessionCredentialBundle,
@@ -180,3 +184,43 @@ def test_rotation_never_extends_absolute_expiry() -> None:
     assert tokens.absolute_expires_at == absolute
     assert tokens.refresh_expires_at == absolute
     assert tokens.access_expires_at == now + ACCESS_LIFETIME
+
+
+def test_rotation_limit_uses_stable_server_side_family() -> None:
+    repository = CapturingSessionRepository()
+    passwords = Argon2idPasswordService()
+    credentials = _credentials()
+    service = SessionService(
+        repository,
+        credentials,
+        passwords,
+        passwords.hash(SecretText("synthetic-dummy-password")),
+        DevelopmentSubjectAbuseControl(limit=1, window=timedelta(minutes=5)),
+    )
+    now = datetime(2026, 8, 29, tzinfo=UTC)
+    repository.rotation_lease = RotationLease(uuid4(), uuid4(), uuid4(), now + timedelta(days=1))
+
+    first = asyncio.run(
+        service.rotate(
+            RotationAttempt(
+                SecretText("synthetic-first-refresh-value-for-rotation"),
+                SecretText("synthetic-first-csrf-value-for-rotation"),
+                uuid4(),
+                now,
+            )
+        )
+    )
+    assert first is not None
+
+    with pytest.raises(RefreshRateLimited) as blocked:
+        asyncio.run(
+            service.rotate(
+                RotationAttempt(
+                    SecretText("synthetic-second-refresh-value-for-rotation"),
+                    SecretText("synthetic-second-csrf-value-for-rotation"),
+                    uuid4(),
+                    now,
+                )
+            )
+        )
+    assert blocked.value.retry_after == timedelta(minutes=5)

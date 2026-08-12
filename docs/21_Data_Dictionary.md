@@ -92,11 +92,18 @@ States: account `PENDING_ACTIVATION`, `ACTIVE`, `SUSPENDED`, `LOCKED`, `CLOSED`;
 | Reversal | New opposite event neutralising original | Original retained; same workspace/currency |
 | Replacement event | Corrected posting after reversal | Explicit link; new history |
 | Canonical event link | Unique domain-source to financial-event relationship | Prevents duplicate cash counting |
+| Approval status | `PENDING`, `APPROVED`, or `REJECTED` review state | Separate from posting effect |
+| Posting status | `NOT_EFFECTIVE`, `EFFECTIVE`, or `REVERSED` | Only Approved Effective postings enter official datasets |
+| Financial event review | Attributed `COMMENT` or `FLAG` sidecar | Never changes event state or totals; Admin may resolve a flag |
 | Recognised revenue | Sale value recognised under sale policy | Not cash received |
 | Cash received | Sum of approved canonical receipt events | Each event once |
 | Outstanding amount | Original receivable less payments/adjustments | Derived; not freely editable |
 
-Financial-record approval states are `PENDING`, `APPROVED`, and `REJECTED`; posting/correction states remain separate. Contributor submissions begin `PENDING`. A local/client `DRAFT` is not a committed event.
+Financial-record approval states are `PENDING`, `APPROVED`, and `REJECTED`; posting states
+are `NOT_EFFECTIVE`, `EFFECTIVE`, and `REVERSED`. Valid combinations and correction rules
+are defined by [ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md).
+Contributor submissions begin `PENDING/NOT_EFFECTIVE`. A local/client `DRAFT` is not a
+committed event. Archive changes discoverability and never neutralises an Approved posting.
 
 ## 6. Farming terms and states
 
@@ -234,7 +241,7 @@ Legal periods are not guessed. Issues #11, #13, #14, and #16 own the retention m
 | --- | --- | --- |
 | `bootstrap_state`, `user_accounts`, `auth_sessions`, `activation_challenges`, `recovery_challenges` | Identity | Controlled global identity boundary; not ordinary workspace queries |
 | `workspaces`, `workspace_memberships`, `workspace_modules`, `ownership_transfers`, `farm_locations` | Workspace Access | Workspace membership-gated visibility; ownership and transfer constraints same workspace |
-| `finance_categories`, `financial_events`, `financial_event_files` | Household Finance | Direct workspace; correction/category/file parents same workspace |
+| `finance_categories`, `financial_events`, `financial_event_files`, `financial_event_reviews` | Household Finance | Direct workspace; correction/category/file/review parents same workspace |
 | `crop_categories`, `farming_investments` | Farming Investments | Direct workspace; crop/location relationships same workspace |
 | `farm_costs`, `farm_cost_allocations`, `harvests`, `crop_sales` | Farm Operations | Direct workspace; cost/project/event parents same workspace |
 | `remittances`, `remittance_allocations`, `debts`, `debt_payments`, `receivables`, `receivable_payments` | Funds | Direct workspace; all source/event/target relationships same workspace |

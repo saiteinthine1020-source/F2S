@@ -46,6 +46,15 @@ app/
 
 `migrations/` contains reviewed Alembic revisions. Domain module code remains independent of SQLAlchemy; persistence mappings stay in the outer infrastructure layer.
 
+`app/shared_kernel/` contains only stable, framework-free primitives used by multiple modules.
+Its initial money boundary supports the versioned MMK (scale 0), JPY (scale 0), and USD
+(scale 2) registry. Ordinary inputs must be positive plain decimal strings and are rejected
+when they exceed the currency scale; calculated `Decimal` values use an explicitly named
+round-half-even boundary. API adapters must call `Money.parse_ordinary(...)` and return
+`Money.to_api()`, which always produces `{amount: <decimal string>, currency_code: <code>}`.
+Persistence adapters use `Money.to_storage_amount()` with exact `NUMERIC(24,4)` columns.
+Neither adapter may coerce through Python `float` or a JSON number.
+
 Workspace Access owns the immutable `AuthorizationContext` and the Admin, Contributor, and Advisor capability matrix. The SQLAlchemy adapter derives context from current database state, revalidates it for every protected operation, and includes `workspace_id` in each protected read and mutation. Public protected repository methods cannot be called without context. Restricted administration projections require their named capability, and missing or foreign resource identifiers share the safe `RESOURCE_NOT_FOUND` outcome.
 
 Identity Security uses locked `argon2-cffi` with the provisional Argon2id candidate from the security design: 65,536 KiB memory, three iterations, parallelism one, 32-byte output, and a random 16-byte salt. New passwords require 15 through 1,024 Unicode characters; the upper safety bound still permits the required 64-character minimum support. A compromised-password screen is injected through a port. Successful verification reports whether the encoded parameters need rehashing.

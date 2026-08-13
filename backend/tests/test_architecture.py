@@ -13,6 +13,12 @@ SCOPED_REPOSITORY_PATHS = (
     / "database"
     / "repositories"
     / "workspace_access.py",
+    Path(__file__).parents[1]
+    / "app"
+    / "infrastructure"
+    / "database"
+    / "repositories"
+    / "finance.py",
 )
 FORBIDDEN_IMPORTS = ("app.api", "fastapi", "sqlalchemy")
 SHARED_KERNEL_FORBIDDEN_IMPORTS = FORBIDDEN_IMPORTS + (

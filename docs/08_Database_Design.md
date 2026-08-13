@@ -134,6 +134,16 @@ Revision `20260809_0002` adds `auth_sessions`, `activation_challenges`, `recover
 
 The application services remain responsible for atomic rotation, lifecycle transitions, transfer locking/completion, append-only audit writes, retention, and authorization. These behaviors are not implied merely by the schema.
 
+### 6.2 Implemented Phase 2 finance foundation revision
+
+Revision `20260814_0003` adds workspace-scoped `finance_categories` and canonical
+`financial_events`. It enforces direct ownership and same-workspace actor/category/correction
+references, positive exact `NUMERIC(24,4)` money, valid approval/posting combinations,
+active category uniqueness, approved-core immutability, one effective reversal, reversal
+currency/magnitude/direction rules, restrictive foreign keys, and hard-delete guards.
+Finance APIs, approval/correction services, review/file sidecars, and official calculation
+selectors remain owned by their later Phase 2 issues.
+
 ## 7. Canonical finance model
 
 ### 7.1 `financial_events`

@@ -423,7 +423,16 @@ Rules:
 5. Same key and different fingerprint returns `409 IDEMPOTENCY_KEY_REUSED`.
 6. In-progress duplicate returns the documented original/in-progress response, never executes a second operation.
 7. Current authentication, membership, and authorisation are revalidated before replaying protected output.
-8. Numeric retention duration is set by Issues #10/#11 after offline/retry evidence.
+8. Household Finance terminal outcomes are retained for exactly 14 days under ADR-018.
+   Other operation classes require an approved owner-specific retention value.
+
+The implemented finance-support boundary stores only SHA-256 key and canonical-request
+digests plus a safe outcome status/reference; it never stores the raw key, request body, or
+response body. Its internal dispositions are `STARTED`, `REPLAY`, `IN_PROGRESS`, and
+`RECOVERY_REQUIRED`. A live or stale lease never authorizes a second execution. Concrete
+finance endpoints map these dispositions to their documented safe HTTP response in the issue
+that implements the command, while changed fingerprints always use `409
+IDEMPOTENCY_KEY_REUSED`.
 
 Idempotency does not replace optimistic concurrency, uniqueness constraints, or canonical-event links.
 

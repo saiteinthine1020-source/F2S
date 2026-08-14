@@ -119,6 +119,27 @@ expiry. It stores no request/response body, credential, notes, counterparty, fil
 amount. Terminal outcomes expire 14 days after completion; stale in-progress work is
 reconciled before another execution is allowed.
 
+Issue #81 implements this evidence in the Application Support module. The raw
+`Idempotency-Key` is validated as 16 to 128 URL-safe ASCII characters and is reduced to a
+SHA-256 digest before persistence. A record stores direct workspace and actor-membership
+scope, a unique operation UUID, bounded operation code, key digest, request fingerprint,
+state, two-minute execution lease, safe outcome code/status and optional canonical resource
+reference, timestamps, and expiry. It never stores a request or response body.
+
+The first claimant receives `STARTED`. A committed matching terminal record returns
+`REPLAY`; a changed operation UUID or fingerprint raises `IDEMPOTENCY_KEY_REUSED`; a live
+lease returns `IN_PROGRESS`; and an expired lease returns `RECOVERY_REQUIRED` without
+executing again. Recovery must reconcile the owning canonical operation before a new attempt.
+Terminal evidence is reusable until its exact 14-day expiry, after which a new claim may be
+created; independent canonical-operation and source-link uniqueness still prevent a second
+cash event. Every claim, completion, failure, and replay revalidates the current account,
+membership, workspace, role, and required capability inside the caller-owned transaction.
+
+Other modules import only `CanonicalFinanceEventCommand`, `FinanceCommandMetadata`, and
+`CanonicalFinanceEventReference` from the Household Finance public package. They must not
+import Household Finance repositories, SQLAlchemy mappings, or category/event internals.
+The concrete income/expense command that implements this port remains owned by Issue #82.
+
 ## 6. State and lifecycle rules
 
 ### 6.1 Valid combinations and transitions

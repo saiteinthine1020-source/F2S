@@ -19,6 +19,12 @@ SCOPED_REPOSITORY_PATHS = (
     / "database"
     / "repositories"
     / "finance.py",
+    Path(__file__).parents[1]
+    / "app"
+    / "infrastructure"
+    / "database"
+    / "repositories"
+    / "idempotency.py",
 )
 FORBIDDEN_IMPORTS = ("app.api", "fastapi", "sqlalchemy")
 SHARED_KERNEL_FORBIDDEN_IMPORTS = FORBIDDEN_IMPORTS + (
@@ -102,4 +108,22 @@ def test_protected_workspace_repository_methods_require_context() -> None:
             if positional_names[:2] != ["self", "context"]:
                 violations.append(f"{repository_path.name}:{node.name}")
 
+    assert violations == []
+
+
+def test_modules_use_only_the_public_household_finance_contract() -> None:
+    """Prevent future modules from importing finance internals or persistence mappings."""
+    violations: list[str] = []
+    forbidden = (
+        "app.infrastructure.database.models.finance",
+        "app.infrastructure.database.repositories.finance",
+        "app.modules.household_finance.categories",
+        "app.modules.household_finance.repositories",
+    )
+    for source_path in MODULE_ROOT.rglob("*.py"):
+        if source_path.parent.name == "household_finance":
+            continue
+        for imported in imported_modules(source_path):
+            if imported.startswith(forbidden):
+                violations.append(f"{source_path}: {imported}")
     assert violations == []

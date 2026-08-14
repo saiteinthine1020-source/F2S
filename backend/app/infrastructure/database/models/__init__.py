@@ -8,6 +8,7 @@ from app.infrastructure.database.models.identity_security import (
     AuthSession,
     RecoveryChallenge,
 )
+from app.infrastructure.database.models.support import IdempotencyRecord
 from app.infrastructure.database.models.workspace_access import (
     OwnershipTransfer,
     Workspace,
@@ -22,6 +23,7 @@ __all__ = [
     "BootstrapState",
     "FinanceCategory",
     "FinancialEvent",
+    "IdempotencyRecord",
     "OwnershipTransfer",
     "RecoveryChallenge",
     "UserAccount",

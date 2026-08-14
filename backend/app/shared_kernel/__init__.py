@@ -21,6 +21,7 @@ from app.shared_kernel.decimals import (
     quantize_exact,
     subtract_exact,
 )
+from app.shared_kernel.idempotency import IdempotencyKey, OperationCode, RequestFingerprint
 from app.shared_kernel.money import Money, MoneyApiValue
 
 __all__ = [
@@ -34,10 +35,13 @@ __all__ = [
     "Currency",
     "CurrencyRegistry",
     "DecimalSpec",
+    "IdempotencyKey",
     "Money",
     "MoneyApiValue",
     "NumericErrorCode",
     "NumericValueError",
+    "OperationCode",
+    "RequestFingerprint",
     "add_exact",
     "canonical_decimal",
     "parse_exact_decimal",

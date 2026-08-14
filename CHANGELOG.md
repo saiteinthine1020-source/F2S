@@ -30,6 +30,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Workspace-scoped finance-category list, create, rename, and archive APIs with Admin-only
   mutations, optimistic concurrency, normalized duplicate protection, historical visibility,
   module gating, safe denials, and bounded audit evidence.
+- Canonical Household Finance command/reference contracts and workspace-scoped durable
+  idempotency evidence with digest-only keys, replay-safe outcomes, execution leases,
+  14-day retention, permission revalidation, concurrency protection, and architecture guards.
 
 ### Security
 

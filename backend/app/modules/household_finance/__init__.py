@@ -9,6 +9,11 @@ from app.modules.household_finance.categories import (
     FinanceCategoryVersionMismatch,
     normalize_category_name,
 )
+from app.modules.household_finance.contracts import (
+    CanonicalFinanceEventCommand,
+    CanonicalFinanceEventReference,
+    FinanceCommandMetadata,
+)
 from app.modules.household_finance.repositories import (
     FinanceCategoryRecord,
     FinanceRepository,
@@ -17,12 +22,15 @@ from app.modules.household_finance.repositories import (
 
 __all__ = [
     "ActivityClassification",
+    "CanonicalFinanceEventCommand",
+    "CanonicalFinanceEventReference",
     "CategoryApplicability",
     "DuplicateFinanceCategory",
     "FinanceCategoryRecord",
     "FinanceCategoryService",
     "FinanceCategoryStateConflict",
     "FinanceCategoryVersionMismatch",
+    "FinanceCommandMetadata",
     "FinanceRepository",
     "FinancialEventRecord",
     "normalize_category_name",

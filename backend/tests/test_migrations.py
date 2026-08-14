@@ -17,6 +17,7 @@ EXPECTED_TABLES = {
     "bootstrap_state",
     "finance_categories",
     "financial_events",
+    "idempotency_records",
     "ownership_transfers",
     "recovery_challenges",
     "user_accounts",
@@ -33,9 +34,14 @@ FOUNDATION_TABLES = EXPECTED_TABLES - {
     "recovery_challenges",
     "finance_categories",
     "financial_events",
+    "idempotency_records",
 }
 
-PHASE_ONE_TABLES = EXPECTED_TABLES - {"finance_categories", "financial_events"}
+PHASE_ONE_TABLES = EXPECTED_TABLES - {
+    "finance_categories",
+    "financial_events",
+    "idempotency_records",
+}
 
 
 @pytest.mark.postgres
@@ -82,6 +88,22 @@ def test_incremental_upgrade_from_phase_one_head(database_settings: Settings) ->
     try:
         command.downgrade(configuration, "20260809_0002")
         assert set(inspect(engine).get_table_names()) == PHASE_ONE_TABLES
+
+        command.upgrade(configuration, "head")
+        assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.postgres
+def test_incremental_upgrade_from_finance_foundation(database_settings: Settings) -> None:
+    """Issue #81 adds only Application Support idempotency persistence."""
+    configuration = Config(Path(__file__).parents[1] / "alembic.ini")
+    sync_url = database_settings.database_url.set(drivername="postgresql+psycopg")
+    engine = create_engine(sync_url)
+    try:
+        command.downgrade(configuration, "20260814_0003")
+        assert "idempotency_records" not in inspect(engine).get_table_names()
 
         command.upgrade(configuration, "head")
         assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES

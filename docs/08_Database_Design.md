@@ -201,7 +201,7 @@ Cross-row allocation/balance invariants are enforced inside the owning transacti
 | `report_artifacts` / Reporting | Request, protected file, renderer/version, checksum validation, expiry/state; partial file never available |
 | `ai_advice_requests` / AI | Safe request metadata only: purpose, dataset version, language, quality, model, state, size/cost/times/correlation/error; no unmasked prompt/prohibited content |
 | `audit_events` / Audit | Append-only workspace/actor/action/resource/result/time/correlation/module/safe metadata; no secret/full payment/unmasked AI; indexed by workspace/time, action, actor, resource, correlation |
-| `idempotency_records` / Support | Workspace/operation/key, request fingerprint, state/result ref/expiry; unique workspace+operation+key; changed fingerprint rejected; current auth rechecked |
+| `idempotency_records` / Support | Direct workspace/actor, unique operation UUID, operation code, SHA-256 key digest, request fingerprint, `IN_PROGRESS/COMPLETED/FAILED`, lease, safe result reference/status, timestamps and 14-day finance expiry; unique workspace+operation and workspace+operation-code+key-digest; no raw key/body; changed fingerprint rejected; current auth rechecked |
 | `outbox_events` / Support | Minimal post-commit intent, schema version, safe payload, `PENDING/PROCESSING/SUCCEEDED/FAILED/DEAD_LETTER/CANCELLED`, attempts/next time/correlation |
 
 Persisted calculated/scenario result snapshots, if later approved, are immutable and carry source snapshot, formula version, precision/rounding, currency/unit, period, availability, quality, and calculation time.

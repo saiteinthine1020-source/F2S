@@ -33,6 +33,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Canonical Household Finance command/reference contracts and workspace-scoped durable
   idempotency evidence with digest-only keys, replay-safe outcomes, execution leases,
   14-day retention, permission revalidation, concurrency protection, and architecture guards.
+- Strict workspace-scoped manual income and expense creation with exact money strings,
+  category compatibility, Admin-approved and Contributor-pending states, safe audit evidence,
+  atomic idempotent replay, role/module enforcement, and concealed cross-workspace failures.
 
 ### Security
 

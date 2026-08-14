@@ -1,6 +1,7 @@
 """Workspace-scoped SQLAlchemy repository for Household Finance."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -33,6 +34,7 @@ from app.modules.household_finance import (
     FinanceCategoryStateConflict,
     FinanceCategoryVersionMismatch,
     FinancialEventRecord,
+    InvalidFinanceCategory,
 )
 from app.modules.workspace_access.authorization import (
     AuthorizationContext,
@@ -82,17 +84,7 @@ class SqlAlchemyFinanceRepository:
         )
         if event is None:
             return None
-        return FinancialEventRecord(
-            id=event.id,
-            event_kind=event.event_kind,
-            cash_direction=event.cash_direction,
-            occurred_on=event.occurred_on,
-            amount=event.amount,
-            currency_code=event.currency_code,
-            approval_status=event.approval_status,
-            posting_status=event.posting_status,
-            version=event.version,
-        )
+        return self._event_record(event)
 
     async def list_categories(
         self, context: AuthorizationContext, *, include_archived: bool
@@ -184,6 +176,104 @@ class SqlAlchemyFinanceRepository:
         await self._audit(context, AuditAction.FINANCE_CATEGORY_ARCHIVED, category.id)
         return self._category_record(category)
 
+    async def create_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        operation_id: UUID,
+        event_kind: str,
+        cash_direction: str,
+        activity_classification_code: str,
+        occurred_on: date,
+        finance_category_id: UUID,
+        amount: Decimal,
+        currency_code: str,
+        payment_method_code: str,
+        counterparty_text: str | None,
+        reference_text: str | None,
+        notes: str | None,
+    ) -> FinancialEventRecord:
+        await self._revalidate(context)
+        require_capability(context, Capability.CREATE_FINANCIAL_SUBMISSION)
+        await self.validate_event_category(
+            context,
+            category_id=finance_category_id,
+            event_kind=event_kind,
+            activity_classification_code=activity_classification_code,
+        )
+
+        now = datetime.now(UTC)
+        is_admin = context.role.value == "ADMIN"
+        event = FinancialEvent(
+            workspace_id=context.workspace_id,
+            event_kind=event_kind,
+            cash_direction=cash_direction,
+            activity_classification_code=activity_classification_code,
+            occurred_on=occurred_on,
+            finance_category_id=finance_category_id,
+            amount=amount,
+            currency_code=currency_code,
+            payment_method_code=payment_method_code,
+            counterparty_text=counterparty_text,
+            reference_text=reference_text,
+            notes=notes,
+            approval_status="APPROVED" if is_admin else "PENDING",
+            posting_status="EFFECTIVE" if is_admin else "NOT_EFFECTIVE",
+            reviewed_by_membership_id=context.membership_id if is_admin else None,
+            reviewed_at=now if is_admin else None,
+            decision_reason_code="ADMIN_CREATED" if is_admin else None,
+            operation_id=operation_id,
+            created_by_membership_id=context.membership_id,
+            updated_by_membership_id=context.membership_id,
+            created_at=now,
+            updated_at=now,
+            version=1,
+        )
+        self._session.add(event)
+        await self._session.flush()
+        await self._audit(
+            context,
+            (
+                AuditAction.FINANCIAL_EVENT_CREATED_APPROVED
+                if is_admin
+                else AuditAction.FINANCIAL_EVENT_SUBMITTED
+            ),
+            event.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT,
+        )
+        return self._event_record(event)
+
+    async def validate_event_category(
+        self,
+        context: AuthorizationContext,
+        *,
+        category_id: UUID,
+        event_kind: str,
+        activity_classification_code: str,
+    ) -> None:
+        await self._revalidate(context)
+        require_capability(context, Capability.CREATE_FINANCIAL_SUBMISSION)
+        category = await self._session.scalar(
+            select(FinanceCategory)
+            .where(
+                FinanceCategory.workspace_id == context.workspace_id,
+                FinanceCategory.id == category_id,
+                FinanceCategory.status == "ACTIVE",
+            )
+            .with_for_update()
+        )
+        if category is None:
+            await self._audit_denial(context, AuditReason.RESOURCE_NOT_FOUND)
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        expected_applicability = "INCOME" if event_kind == "MANUAL_INCOME" else "EXPENSE"
+        if category.applicability_code not in (expected_applicability, "BOTH"):
+            raise InvalidFinanceCategory
+        if (
+            category.activity_classification_code is not None
+            and category.activity_classification_code != activity_classification_code
+        ):
+            raise InvalidFinanceCategory
+
     async def _locked_category(
         self, context: AuthorizationContext, category_id: UUID
     ) -> FinanceCategory:
@@ -222,8 +312,33 @@ class SqlAlchemyFinanceRepository:
             version=category.version,
         )
 
+    @staticmethod
+    def _event_record(event: FinancialEvent) -> FinancialEventRecord:
+        return FinancialEventRecord(
+            id=event.id,
+            event_kind=event.event_kind,
+            cash_direction=event.cash_direction,
+            activity_classification_code=event.activity_classification_code,
+            occurred_on=event.occurred_on,
+            finance_category_id=event.finance_category_id,
+            amount=event.amount,
+            currency_code=event.currency_code,
+            payment_method_code=event.payment_method_code,
+            counterparty_text=event.counterparty_text,
+            reference_text=event.reference_text,
+            notes=event.notes,
+            approval_status=event.approval_status,
+            posting_status=event.posting_status,
+            version=event.version,
+        )
+
     async def _audit(
-        self, context: AuthorizationContext, action: AuditAction, resource_id: UUID
+        self,
+        context: AuthorizationContext,
+        action: AuditAction,
+        resource_id: UUID,
+        *,
+        resource_type: AuditResourceType = AuditResourceType.FINANCE_CATEGORY,
     ) -> None:
         await SqlAlchemyAuditWriter(self._session).append(
             AuditEventIntent(
@@ -234,7 +349,7 @@ class SqlAlchemyFinanceRepository:
                 module=AuditModule.HOUSEHOLD_FINANCE,
                 result=AuditResult.SUCCEEDED,
                 correlation_id=context.correlation_id,
-                resource_type=AuditResourceType.FINANCE_CATEGORY,
+                resource_type=resource_type,
                 resource_id=resource_id,
                 source=AuditSource.API,
                 context=AuditContext.FINANCE_ENTRY,

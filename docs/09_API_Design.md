@@ -208,7 +208,40 @@ for selection by new financial events. Foreign identifiers use the same conceale
 RESOURCE_NOT_FOUND` shape as absent identifiers, and successful mutations, denials, stale
 versions, and invalid state transitions produce bounded audit evidence.
 
-### 6.3 Implemented membership lifecycle contract
+### 6.3 Manual income and expense creation
+
+`POST /api/v1/workspaces/{workspace_id}/financial-events` creates one manual income or
+expense. It requires an Active Admin or Contributor membership, the enabled Household
+Finance module, exact configured browser Origin, strict JSON, and `Idempotency-Key`.
+Advisor mutation is denied. The body contains:
+
+- client-stable `operation_id` UUID, reused for every retry of the same canonical action;
+- `event_kind` as `MANUAL_INCOME` or `MANUAL_EXPENSE`, from which the server derives
+  `INFLOW` or `OUTFLOW`;
+- `activity_classification`, `occurred_on`, and an Active same-workspace
+  `finance_category_id` compatible with the kind and classification;
+- `money` containing a strictly positive ordinary decimal string and approved
+  `currency_code`;
+- `payment_method`; and
+- optional bounded `counterparty`, `reference`, and `notes` strings.
+
+The client cannot submit direction, creator, approval status, posting status, reviewer, or
+version. An Admin create returns `APPROVED/EFFECTIVE`; a Contributor create returns
+`PENDING/NOT_EFFECTIVE`, and the Pending event is excluded from official datasets. Success
+returns `201`, the complete event representation, `Location`, and
+`Idempotency-Replayed: false|true`. Money remains a fixed-scale JSON string paired with its
+currency.
+
+The event, required safe audit evidence, and terminal idempotency outcome use one caller-owned
+database transaction. A matching retry returns the original event after current authority is
+revalidated. A changed fingerprint returns `409 IDEMPOTENCY_KEY_REUSED`; a live or stale
+execution lease returns a safe conflict without running again. Missing, archived, or foreign
+categories use concealed `404 RESOURCE_NOT_FOUND`; locally incompatible categories and exact
+numeric violations use safe validation failure. No error stores or reflects money,
+counterparty, reference, notes, raw idempotency key, or request body in audit/idempotency
+evidence.
+
+### 6.4 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
 associated email, display name, role, membership status, bounded account status, language,
@@ -245,7 +278,7 @@ authorization also rechecks current membership state and role on every request. 
 remain concealed, stale writes have no lifecycle side effect, and successful/denied changes
 write bounded audit evidence without submitted profile or identifier payloads.
 
-### 6.3 Implemented ownership-transfer contract
+### 6.5 Implemented ownership-transfer contract
 
 Ownership transfer is a strict-JSON, exact-Origin browser workflow and never a membership
 PATCH. Initiation accepts `target_membership_id`, the former owner's destination role

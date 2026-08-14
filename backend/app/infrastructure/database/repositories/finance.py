@@ -1,18 +1,45 @@
-"""Workspace-scoped SQLAlchemy repository foundation for Household Finance."""
+"""Workspace-scoped SQLAlchemy repository for Household Finance."""
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models.finance import FinanceCategory, FinancialEvent
 from app.infrastructure.database.models.identity import UserAccount
-from app.infrastructure.database.models.workspace_access import Workspace, WorkspaceMembership
-from app.modules.household_finance import FinanceCategoryRecord, FinancialEventRecord
+from app.infrastructure.database.models.workspace_access import (
+    Workspace,
+    WorkspaceMembership,
+    WorkspaceModule,
+)
+from app.infrastructure.database.repositories.audit import SqlAlchemyAuditWriter
+from app.modules.audit import (
+    AuditAction,
+    AuditActor,
+    AuditContext,
+    AuditEventIntent,
+    AuditModule,
+    AuditReason,
+    AuditResourceType,
+    AuditResult,
+    AuditScope,
+    AuditSource,
+)
+from app.modules.household_finance import (
+    DuplicateFinanceCategory,
+    FinanceCategoryRecord,
+    FinanceCategoryStateConflict,
+    FinanceCategoryVersionMismatch,
+    FinancialEventRecord,
+)
 from app.modules.workspace_access.authorization import (
     AuthorizationContext,
     AuthorizationDenied,
+    Capability,
     DenialCode,
+    require_capability,
 )
 
 
@@ -67,12 +94,177 @@ class SqlAlchemyFinanceRepository:
             version=event.version,
         )
 
+    async def list_categories(
+        self, context: AuthorizationContext, *, include_archived: bool
+    ) -> tuple[FinanceCategoryRecord, ...]:
+        await self._revalidate(context)
+        statement = select(FinanceCategory).where(
+            FinanceCategory.workspace_id == context.workspace_id
+        )
+        if not include_archived:
+            statement = statement.where(FinanceCategory.status == "ACTIVE")
+        categories = (
+            await self._session.scalars(
+                statement.order_by(FinanceCategory.normalized_name, FinanceCategory.id)
+            )
+        ).all()
+        return tuple(self._category_record(category) for category in categories)
+
+    async def create_category(
+        self,
+        context: AuthorizationContext,
+        *,
+        display_name: str,
+        normalized_name: str,
+        applicability_code: str,
+        activity_classification_code: str | None,
+    ) -> FinanceCategoryRecord:
+        await self._revalidate(context)
+        require_capability(context, Capability.MANAGE_FINANCE_CATEGORIES)
+        category = FinanceCategory(
+            workspace_id=context.workspace_id,
+            display_name=display_name,
+            normalized_name=normalized_name,
+            applicability_code=applicability_code,
+            activity_classification_code=activity_classification_code,
+            status="ACTIVE",
+            created_by_membership_id=context.membership_id,
+            updated_by_membership_id=context.membership_id,
+            version=1,
+        )
+        try:
+            async with self._session.begin_nested():
+                self._session.add(category)
+                await self._session.flush()
+        except IntegrityError as error:
+            raise DuplicateFinanceCategory from error
+        await self._audit(context, AuditAction.FINANCE_CATEGORY_CREATED, category.id)
+        return self._category_record(category)
+
+    async def rename_category(
+        self,
+        context: AuthorizationContext,
+        *,
+        category_id: UUID,
+        expected_version: int,
+        display_name: str,
+        normalized_name: str,
+    ) -> FinanceCategoryRecord:
+        category = await self._locked_category(context, category_id)
+        require_capability(context, Capability.MANAGE_FINANCE_CATEGORIES)
+        await self._require_mutable_version(context, category, expected_version)
+        category.display_name = display_name
+        category.normalized_name = normalized_name
+        category.updated_by_membership_id = context.membership_id
+        category.updated_at = datetime.now(UTC)
+        category.version += 1
+        try:
+            async with self._session.begin_nested():
+                await self._session.flush()
+        except IntegrityError as error:
+            raise DuplicateFinanceCategory from error
+        await self._audit(context, AuditAction.FINANCE_CATEGORY_UPDATED, category.id)
+        return self._category_record(category)
+
+    async def archive_category(
+        self, context: AuthorizationContext, *, category_id: UUID, expected_version: int
+    ) -> FinanceCategoryRecord:
+        category = await self._locked_category(context, category_id)
+        require_capability(context, Capability.MANAGE_FINANCE_CATEGORIES)
+        await self._require_mutable_version(context, category, expected_version)
+        now = datetime.now(UTC)
+        category.status = "ARCHIVED"
+        category.archived_at = now
+        category.archived_by_membership_id = context.membership_id
+        category.archive_reason_code = "ADMIN_ARCHIVED"
+        category.updated_by_membership_id = context.membership_id
+        category.updated_at = now
+        category.version += 1
+        await self._session.flush()
+        await self._audit(context, AuditAction.FINANCE_CATEGORY_ARCHIVED, category.id)
+        return self._category_record(category)
+
+    async def _locked_category(
+        self, context: AuthorizationContext, category_id: UUID
+    ) -> FinanceCategory:
+        await self._revalidate(context)
+        category = await self._session.scalar(
+            select(FinanceCategory)
+            .where(
+                FinanceCategory.workspace_id == context.workspace_id,
+                FinanceCategory.id == category_id,
+            )
+            .with_for_update()
+        )
+        if category is None:
+            await self._audit_denial(context, AuditReason.RESOURCE_NOT_FOUND)
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        return category
+
+    async def _require_mutable_version(
+        self, context: AuthorizationContext, category: FinanceCategory, expected_version: int
+    ) -> None:
+        if category.version != expected_version:
+            await self._audit_denial(context, AuditReason.STALE_VERSION)
+            raise FinanceCategoryVersionMismatch
+        if category.status != "ACTIVE":
+            await self._audit_denial(context, AuditReason.INVALID_STATE_TRANSITION)
+            raise FinanceCategoryStateConflict
+
+    @staticmethod
+    def _category_record(category: FinanceCategory) -> FinanceCategoryRecord:
+        return FinanceCategoryRecord(
+            id=category.id,
+            display_name=category.display_name,
+            applicability_code=category.applicability_code,
+            activity_classification_code=category.activity_classification_code,
+            status=category.status,
+            version=category.version,
+        )
+
+    async def _audit(
+        self, context: AuthorizationContext, action: AuditAction, resource_id: UUID
+    ) -> None:
+        await SqlAlchemyAuditWriter(self._session).append(
+            AuditEventIntent(
+                scope=AuditScope.WORKSPACE,
+                workspace_id=context.workspace_id,
+                actor=AuditActor.user(context.actor_account_id, context.membership_id),
+                action=action,
+                module=AuditModule.HOUSEHOLD_FINANCE,
+                result=AuditResult.SUCCEEDED,
+                correlation_id=context.correlation_id,
+                resource_type=AuditResourceType.FINANCE_CATEGORY,
+                resource_id=resource_id,
+                source=AuditSource.API,
+                context=AuditContext.FINANCE_ENTRY,
+            )
+        )
+
+    async def _audit_denial(self, context: AuthorizationContext, reason: AuditReason) -> None:
+        await SqlAlchemyAuditWriter(self._session).append(
+            AuditEventIntent(
+                scope=AuditScope.WORKSPACE,
+                workspace_id=context.workspace_id,
+                actor=AuditActor.user(context.actor_account_id, context.membership_id),
+                action=AuditAction.FINANCE_ACCESS_DENIED,
+                module=AuditModule.HOUSEHOLD_FINANCE,
+                result=AuditResult.DENIED,
+                correlation_id=context.correlation_id,
+                resource_type=AuditResourceType.FINANCE_CATEGORY,
+                reason=reason,
+                source=AuditSource.API,
+                context=AuditContext.FINANCE_ENTRY,
+            )
+        )
+
     async def _revalidate(self, context: AuthorizationContext) -> None:
         statement = (
             select(WorkspaceMembership.id)
             .select_from(WorkspaceMembership)
             .join(UserAccount, UserAccount.id == WorkspaceMembership.user_account_id)
             .join(Workspace, Workspace.id == WorkspaceMembership.workspace_id)
+            .join(WorkspaceModule, WorkspaceModule.workspace_id == Workspace.id)
             .where(
                 WorkspaceMembership.workspace_id == context.workspace_id,
                 WorkspaceMembership.id == context.membership_id,
@@ -81,6 +273,8 @@ class SqlAlchemyFinanceRepository:
                 WorkspaceMembership.status == "ACTIVE",
                 UserAccount.status == "ACTIVE",
                 Workspace.status == "ACTIVE",
+                WorkspaceModule.module_code == "HOUSEHOLD_FINANCE",
+                WorkspaceModule.enabled.is_(True),
             )
         )
         if (await self._session.execute(statement)).scalar_one_or_none() is None:

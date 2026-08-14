@@ -226,6 +226,15 @@ and review creation require `Idempotency-Key`. Current authorization is rechecke
 stored safe outcome is returned. Lifecycle commands also require current ETag where specified;
 idempotency never replaces concurrency control.
 
+Issue #82 implements manual creation as strict `POST /financial-events`. The request carries a
+client-stable canonical `operation_id`, event kind, classification, occurrence date, Active
+same-workspace category, exact positive money object, payment method, and bounded optional
+counterparty, reference, and notes. Direction and lifecycle state are server derived. Admin
+creation commits `APPROVED/EFFECTIVE`; Contributor creation commits
+`PENDING/NOT_EFFECTIVE`; Advisor creation is denied. Event, bounded audit action, and terminal
+idempotency outcome commit in the same transaction, and matching replay returns the original
+safe representation after current authorization is revalidated.
+
 Foreign, fabricated, disabled-module, or inaccessible identifiers return the existing safe
 concealed contract. Protected finance JSON and downloads use `Cache-Control: no-store`.
 

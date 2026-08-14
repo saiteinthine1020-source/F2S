@@ -24,9 +24,15 @@ class FinancialEventRecord:
     id: UUID
     event_kind: str
     cash_direction: str
+    activity_classification_code: str
     occurred_on: date
+    finance_category_id: UUID
     amount: Decimal
     currency_code: str
+    payment_method_code: str
+    counterparty_text: str | None
+    reference_text: str | None
+    notes: str | None
     approval_status: str
     posting_status: str
     version: int
@@ -70,3 +76,30 @@ class FinanceRepository(Protocol):
     async def archive_category(
         self, context: AuthorizationContext, *, category_id: UUID, expected_version: int
     ) -> FinanceCategoryRecord: ...
+
+    async def create_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        operation_id: UUID,
+        event_kind: str,
+        cash_direction: str,
+        activity_classification_code: str,
+        occurred_on: date,
+        finance_category_id: UUID,
+        amount: Decimal,
+        currency_code: str,
+        payment_method_code: str,
+        counterparty_text: str | None,
+        reference_text: str | None,
+        notes: str | None,
+    ) -> FinancialEventRecord: ...
+
+    async def validate_event_category(
+        self,
+        context: AuthorizationContext,
+        *,
+        category_id: UUID,
+        event_kind: str,
+        activity_classification_code: str,
+    ) -> None: ...

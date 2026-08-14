@@ -14,6 +14,18 @@ from app.modules.household_finance.contracts import (
     CanonicalFinanceEventReference,
     FinanceCommandMetadata,
 )
+from app.modules.household_finance.events import (
+    CashDirection,
+    FinancialEventCommandService,
+    FinancialEventInProgress,
+    FinancialEventKind,
+    FinancialEventRecoveryRequired,
+    FinancialEventReplayUnavailable,
+    InvalidFinanceCategory,
+    ManualFinancialEventCommand,
+    PaymentMethod,
+    normalize_optional_finance_text,
+)
 from app.modules.household_finance.repositories import (
     FinanceCategoryRecord,
     FinanceRepository,
@@ -24,6 +36,7 @@ __all__ = [
     "ActivityClassification",
     "CanonicalFinanceEventCommand",
     "CanonicalFinanceEventReference",
+    "CashDirection",
     "CategoryApplicability",
     "DuplicateFinanceCategory",
     "FinanceCategoryRecord",
@@ -32,6 +45,15 @@ __all__ = [
     "FinanceCategoryVersionMismatch",
     "FinanceCommandMetadata",
     "FinanceRepository",
+    "FinancialEventCommandService",
+    "FinancialEventInProgress",
+    "FinancialEventKind",
     "FinancialEventRecord",
+    "FinancialEventRecoveryRequired",
+    "FinancialEventReplayUnavailable",
+    "InvalidFinanceCategory",
+    "ManualFinancialEventCommand",
+    "PaymentMethod",
     "normalize_category_name",
+    "normalize_optional_finance_text",
 ]

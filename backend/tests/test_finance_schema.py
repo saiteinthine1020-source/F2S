@@ -13,8 +13,100 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import Settings
 from app.infrastructure.database.repositories.finance import SqlAlchemyFinanceRepository
 from app.infrastructure.database.session import create_database_engine, create_session_factory
+from app.modules.household_finance import (
+    DuplicateFinanceCategory,
+    FinanceCategoryStateConflict,
+    FinanceCategoryVersionMismatch,
+)
 from app.modules.workspace_access.authorization import AuthorizationContext, WorkspaceRole
 from tests.fixtures import seed_phase_one_workspaces
+
+
+@pytest.mark.postgres
+def test_category_repository_lifecycle_is_scoped_versioned_and_audited(
+    migrated_database: Settings,
+) -> None:
+    async def exercise() -> None:
+        fixture = await seed_phase_one_workspaces(migrated_database)
+        engine = create_database_engine(migrated_database)
+        context = AuthorizationContext(
+            actor_account_id=fixture.admin_a_user_id,
+            workspace_id=fixture.workspace_a_id,
+            membership_id=fixture.admin_a_membership_id,
+            role=WorkspaceRole.ADMIN,
+            correlation_id=uuid4(),
+        )
+        try:
+            session_factory = create_session_factory(engine)
+            async with session_factory.begin() as session:
+                repository = SqlAlchemyFinanceRepository(session)
+                created = await repository.create_category(
+                    context,
+                    display_name="Living Costs",
+                    normalized_name="living costs",
+                    applicability_code="EXPENSE",
+                    activity_classification_code="HOUSEHOLD",
+                )
+                assert created.status == "ACTIVE"
+                with pytest.raises(DuplicateFinanceCategory):
+                    await repository.create_category(
+                        context,
+                        display_name="LIVING COSTS",
+                        normalized_name="living costs",
+                        applicability_code="EXPENSE",
+                        activity_classification_code="HOUSEHOLD",
+                    )
+                renamed = await repository.rename_category(
+                    context,
+                    category_id=created.id,
+                    expected_version=1,
+                    display_name="Home Costs",
+                    normalized_name="home costs",
+                )
+                assert renamed.version == 2
+                with pytest.raises(FinanceCategoryVersionMismatch):
+                    await repository.rename_category(
+                        context,
+                        category_id=created.id,
+                        expected_version=1,
+                        display_name="Stale",
+                        normalized_name="stale",
+                    )
+                archived = await repository.archive_category(
+                    context, category_id=created.id, expected_version=2
+                )
+                assert archived.status == "ARCHIVED"
+                assert await repository.list_categories(context, include_archived=False) == ()
+                assert (await repository.list_categories(context, include_archived=True))[
+                    0
+                ].id == created.id
+                with pytest.raises(FinanceCategoryStateConflict):
+                    await repository.archive_category(
+                        context, category_id=created.id, expected_version=3
+                    )
+
+                actions = (
+                    (
+                        await session.execute(
+                            text(
+                                "SELECT action_code FROM audit_events "
+                                "WHERE workspace_id = :workspace AND resource_type_code = "
+                                "'FINANCE_CATEGORY' ORDER BY occurred_at, id"
+                            ),
+                            {"workspace": fixture.workspace_a_id},
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                assert "FINANCE_CATEGORY_CREATED" in actions
+                assert "FINANCE_CATEGORY_UPDATED" in actions
+                assert "FINANCE_CATEGORY_ARCHIVED" in actions
+                assert "FINANCE_ACCESS_DENIED" in actions
+        finally:
+            await engine.dispose()
+
+    asyncio.run(exercise())
 
 
 async def insert_category(

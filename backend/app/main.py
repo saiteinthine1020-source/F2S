@@ -13,6 +13,7 @@ from app.api.account_security import router as account_security_router
 from app.api.bootstrap import router as bootstrap_router
 from app.api.browser_security import BrowserSecurityDenied
 from app.api.errors import correlation_for, safe_error
+from app.api.finance_categories import router as finance_categories_router
 from app.api.health import router as health_router
 from app.api.member_activation import router as member_activation_router
 from app.api.member_lifecycle import router as member_lifecycle_router
@@ -150,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(sessions_router)
     application.include_router(account_security_router)
     application.include_router(workspace_settings_router)
+    application.include_router(finance_categories_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[effective_settings.frontend_origin],
@@ -158,6 +160,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=[
             "Authorization",
             "Content-Type",
+            "If-Match",
             "X-Correlation-ID",
             "X-CSRF-Token",
         ],

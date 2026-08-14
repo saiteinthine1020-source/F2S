@@ -42,3 +42,31 @@ class FinanceRepository(Protocol):
     async def get_event(
         self, context: AuthorizationContext, *, event_id: UUID
     ) -> FinancialEventRecord | None: ...
+
+    async def list_categories(
+        self, context: AuthorizationContext, *, include_archived: bool
+    ) -> tuple[FinanceCategoryRecord, ...]: ...
+
+    async def create_category(
+        self,
+        context: AuthorizationContext,
+        *,
+        display_name: str,
+        normalized_name: str,
+        applicability_code: str,
+        activity_classification_code: str | None,
+    ) -> FinanceCategoryRecord: ...
+
+    async def rename_category(
+        self,
+        context: AuthorizationContext,
+        *,
+        category_id: UUID,
+        expected_version: int,
+        display_name: str,
+        normalized_name: str,
+    ) -> FinanceCategoryRecord: ...
+
+    async def archive_category(
+        self, context: AuthorizationContext, *, category_id: UUID, expected_version: int
+    ) -> FinanceCategoryRecord: ...

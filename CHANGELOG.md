@@ -27,6 +27,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Audit validation and PostgreSQL evidence for UTC identity/workspace events, metadata redaction, append-only boundaries, correlation consistency, and atomic state-plus-audit commit/rollback.
 - One-time serialized first-Admin/workspace bootstrap with normalized input, Argon2id-only password persistence, explicit module defaults, atomic owner/audit creation, safe API envelopes, and permanent post-success closure.
 - Bootstrap concurrency, rollback, validation, owner, audit, API, and operator-procedure evidence.
+- Workspace-scoped finance-category list, create, rename, and archive APIs with Admin-only
+  mutations, optimistic concurrency, normalized duplicate protection, historical visibility,
+  module gating, safe denials, and bounded audit evidence.
 
 ### Security
 

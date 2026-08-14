@@ -184,7 +184,31 @@ reclassify history. Disabling a module makes it unavailable to future protected 
 but retains existing records and configuration for later re-enablement. Unknown or foreign
 workspace identifiers use the ordinary concealed `RESOURCE_NOT_FOUND` response.
 
-### 6.2 Implemented membership lifecycle contract
+### 6.2 Finance categories
+
+Finance-category resources are always selected through
+`/api/v1/workspaces/{workspace_id}/finance-categories`. `GET` is available to active Admin,
+Contributor, and Advisor memberships when the Household Finance module is enabled. It lists
+active categories by default; `include_archived=true` adds archived categories so historical
+records remain explainable. No route exposes a category from another workspace.
+
+`POST` creates an active category and accepts `name`, `applicability` (`INCOME`, `EXPENSE`, or
+`BOTH`), and optional `activity_classification` (`HOUSEHOLD`, `FARM`, or `BUSINESS`). `PATCH
+/{category_id}` renames it, and `POST /{category_id}/archivals` with an empty `{}` body archives
+it. All three mutations require an active Admin membership, exact configured Origin, strict
+JSON, and, for rename/archive, `If-Match: "vN"`. Successful responses contain the complete
+category representation and current ETag.
+
+Names are NFKC-normalised, trimmed, whitespace-collapsed, and compared case-insensitively
+within workspace, applicability, and activity scope. An active duplicate returns `409
+DUPLICATE_RESOURCE`; missing, malformed, and stale mutation versions use 428/412; attempting
+to mutate an archived category returns `409 INVALID_STATE_TRANSITION`. Archival retains the
+row and its historical financial-event references, while archived categories are unavailable
+for selection by new financial events. Foreign identifiers use the same concealed `404
+RESOURCE_NOT_FOUND` shape as absent identifiers, and successful mutations, denials, stale
+versions, and invalid state transitions produce bounded audit evidence.
+
+### 6.3 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
 associated email, display name, role, membership status, bounded account status, language,

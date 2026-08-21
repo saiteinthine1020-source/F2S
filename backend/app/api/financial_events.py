@@ -6,7 +6,7 @@ import re
 from dataclasses import replace
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, Response, status
@@ -47,18 +47,25 @@ from app.modules.household_finance import (
     ApprovalReasonCode,
     CashDirection,
     FinanceCommandMetadata,
+    FinancialEventArchiveCommand,
     FinancialEventArchiveScope,
     FinancialEventCommandService,
+    FinancialEventCorrectionCommand,
     FinancialEventDecision,
     FinancialEventDecisionCommand,
     FinancialEventDecisionService,
     FinancialEventInProgress,
     FinancialEventKind,
+    FinancialEventLifecycleReason,
+    FinancialEventLifecycleRecord,
+    FinancialEventLifecycleService,
+    FinancialEventLifecycleStateConflict,
     FinancialEventQuery,
     FinancialEventQueryService,
     FinancialEventRecord,
     FinancialEventRecoveryRequired,
     FinancialEventReplayUnavailable,
+    FinancialEventReversalCommand,
     FinancialEventStateConflict,
     FinancialEventStatusRecord,
     FinancialEventVersionMismatch,
@@ -186,6 +193,47 @@ class FinancialEventRejectionRequest(BaseModel):
     explanation: Annotated[str, StringConstraints(strict=True, min_length=1, max_length=512)]
 
 
+class FinancialEventReplacementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    event_kind: FinancialEventKind
+    activity_classification: ActivityClassification
+    occurred_on: date
+    finance_category_id: UUID
+    money: MoneyRequest
+    payment_method: PaymentMethod
+    counterparty: str | None = Field(default=None, min_length=1, max_length=256)
+    reference: str | None = Field(default=None, min_length=1, max_length=128)
+    notes: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
+class FinancialEventReversalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: UUID
+    occurred_on: date
+    reason_code: FinancialEventLifecycleReason
+    confirmed: Literal[True]
+
+
+class FinancialEventCorrectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: UUID
+    reversal_occurred_on: date
+    reason_code: FinancialEventLifecycleReason
+    confirmed: Literal[True]
+    replacement: FinancialEventReplacementRequest | None = None
+
+
+class FinancialEventArchiveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: UUID
+    reason_code: FinancialEventLifecycleReason
+    confirmed: Literal[True]
+
+
 class MoneyRepresentation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -216,6 +264,20 @@ class FinancialEventEnvelope(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     data: FinancialEventRepresentation
+
+
+class FinancialEventLifecycleRepresentation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    original: FinancialEventRepresentation
+    reversal: FinancialEventRepresentation
+    replacement: FinancialEventRepresentation | None
+
+
+class FinancialEventLifecycleEnvelope(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    data: FinancialEventLifecycleRepresentation
 
 
 class FinancialEventListMetadata(BaseModel):
@@ -276,6 +338,13 @@ def _decision_service(session: AsyncSession) -> FinancialEventDecisionService:
     )
 
 
+def _lifecycle_service(session: AsyncSession) -> FinancialEventLifecycleService:
+    return FinancialEventLifecycleService(
+        SqlAlchemyFinanceRepository(session),
+        IdempotencyService(SqlAlchemyIdempotencyRepository(session)),
+    )
+
+
 async def _resolve_context(
     session: AsyncSession,
     *,
@@ -318,6 +387,24 @@ def _decision_fingerprint(
     return RequestFingerprint.from_canonical_bytes(canonical)
 
 
+def _lifecycle_fingerprint(
+    event_id: UUID,
+    operation: str,
+    payload: BaseModel,
+) -> RequestFingerprint:
+    canonical = json.dumps(
+        {
+            "event_id": str(event_id),
+            "operation": operation,
+            "payload": payload.model_dump(mode="json"),
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    return RequestFingerprint.from_canonical_bytes(canonical)
+
+
 def _representation(record: FinancialEventRecord) -> FinancialEventRepresentation:
     currency = INITIAL_CURRENCY_REGISTRY.require(record.currency_code)
     exact_money = Money.from_calculated(record.amount, currency)
@@ -339,6 +426,20 @@ def _representation(record: FinancialEventRecord) -> FinancialEventRepresentatio
         approval_status=record.approval_status,
         posting_status=record.posting_status,
         version=record.version,
+    )
+
+
+def _lifecycle_representation(
+    record: FinancialEventLifecycleRecord,
+) -> FinancialEventLifecycleRepresentation:
+    if record.reversal is None:
+        raise ValueError("MISSING_FINANCIAL_EVENT_REVERSAL")
+    return FinancialEventLifecycleRepresentation(
+        original=_representation(record.original),
+        reversal=_representation(record.reversal),
+        replacement=(
+            _representation(record.replacement) if record.replacement is not None else None
+        ),
     )
 
 
@@ -723,6 +824,201 @@ async def reject_financial_event(
         session=session,
         idempotency_key=idempotency_key,
     )
+
+
+def _replacement_command(
+    payload: FinancialEventReplacementRequest | None,
+) -> ManualFinancialEventCommand | None:
+    if payload is None:
+        return None
+    return ManualFinancialEventCommand(
+        event_kind=payload.event_kind,
+        activity_classification=payload.activity_classification,
+        occurred_on=payload.occurred_on,
+        finance_category_id=payload.finance_category_id,
+        amount=payload.money.amount,
+        currency_code=payload.money.currency_code,
+        payment_method=payload.payment_method,
+        counterparty=payload.counterparty,
+        reference=payload.reference,
+        notes=payload.notes,
+    )
+
+
+def _lifecycle_error(request: Request, error: Exception) -> Response:
+    if isinstance(error, AuthorizationDenied):
+        return _authorization_error(request, error)
+    if isinstance(error, FinancialEventVersionMismatch):
+        return _version_error(request)
+    if isinstance(error, IdempotencyKeyReused):
+        return _conflict(
+            request,
+            "IDEMPOTENCY_KEY_REUSED",
+            "The idempotency key is already bound to another request.",
+        )
+    if isinstance(error, (FinancialEventInProgress, FinancialEventRecoveryRequired)):
+        return _conflict(request, "CONFLICT", "The lifecycle command is already processing.")
+    if isinstance(error, FinancialEventReplayUnavailable):
+        return _conflict(request, "CONFLICT", "The command cannot be replayed safely.")
+    if isinstance(error, FinancialEventLifecycleStateConflict):
+        return _conflict(
+            request,
+            "INVALID_STATE_TRANSITION",
+            "The financial event is not eligible for this lifecycle command.",
+        )
+    if isinstance(error, InvalidFinanceCategory):
+        return safe_error(
+            status_code=422,
+            code="VALIDATION_FAILED",
+            message="The selected category is incompatible with the financial event.",
+            correlation_id=correlation_for(request),
+        )
+    raise error
+
+
+@router.post("/{event_id}/reversals", response_model=FinancialEventLifecycleEnvelope)
+async def reverse_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventReversalRequest,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+    browser: BrowserBoundary,
+    idempotency_key: IdempotencyHeader,
+    if_match: IfMatch = None,
+) -> FinancialEventLifecycleEnvelope | Response:
+    del browser
+    expected_version = _expected_version(if_match)
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        result, replayed = await _lifecycle_service(session).reverse(
+            context,
+            event_id=event_id,
+            expected_version=expected_version,
+            command=FinancialEventReversalCommand(
+                payload.occurred_on, payload.reason_code, payload.confirmed
+            ),
+            metadata=FinanceCommandMetadata(
+                payload.operation_id,
+                OperationCode("REVERSE_FINANCIAL_EVENT"),
+                IdempotencyKey(idempotency_key),
+                _lifecycle_fingerprint(event_id, "REVERSE_FINANCIAL_EVENT", payload),
+                Capability.APPROVE_OR_REJECT_SUBMISSIONS,
+            ),
+        )
+    except AuthorizationDenied as error:
+        if "context" in locals() and error.code is DenialCode.PERMISSION_DENIED:
+            await _audit_permission_denial(session, context)
+        return _lifecycle_error(request, error)
+    except Exception as error:
+        return _lifecycle_error(request, error)
+    response.headers["Idempotency-Replayed"] = "true" if replayed else "false"
+    response.headers["ETag"] = f'"v{result.original.version}"'
+    return FinancialEventLifecycleEnvelope(data=_lifecycle_representation(result))
+
+
+@router.post("/{event_id}/corrections", response_model=FinancialEventLifecycleEnvelope)
+async def correct_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventCorrectionRequest,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+    browser: BrowserBoundary,
+    idempotency_key: IdempotencyHeader,
+    if_match: IfMatch = None,
+) -> FinancialEventLifecycleEnvelope | Response:
+    del browser
+    expected_version = _expected_version(if_match)
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        result, replayed = await _lifecycle_service(session).correct(
+            context,
+            event_id=event_id,
+            expected_version=expected_version,
+            command=FinancialEventCorrectionCommand(
+                payload.reversal_occurred_on,
+                payload.reason_code,
+                payload.confirmed,
+                _replacement_command(payload.replacement),
+            ),
+            metadata=FinanceCommandMetadata(
+                payload.operation_id,
+                OperationCode("CORRECT_FINANCIAL_EVENT"),
+                IdempotencyKey(idempotency_key),
+                _lifecycle_fingerprint(event_id, "CORRECT_FINANCIAL_EVENT", payload),
+                Capability.APPROVE_OR_REJECT_SUBMISSIONS,
+            ),
+        )
+    except AuthorizationDenied as error:
+        if "context" in locals() and error.code is DenialCode.PERMISSION_DENIED:
+            await _audit_permission_denial(session, context)
+        return _lifecycle_error(request, error)
+    except Exception as error:
+        return _lifecycle_error(request, error)
+    response.headers["Idempotency-Replayed"] = "true" if replayed else "false"
+    response.headers["ETag"] = f'"v{result.original.version}"'
+    return FinancialEventLifecycleEnvelope(data=_lifecycle_representation(result))
+
+
+@router.post("/{event_id}/archivals", response_model=FinancialEventEnvelope)
+async def archive_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventArchiveRequest,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+    browser: BrowserBoundary,
+    idempotency_key: IdempotencyHeader,
+    if_match: IfMatch = None,
+) -> FinancialEventEnvelope | Response:
+    del browser
+    expected_version = _expected_version(if_match)
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        record, replayed = await _lifecycle_service(session).archive(
+            context,
+            event_id=event_id,
+            expected_version=expected_version,
+            command=FinancialEventArchiveCommand(payload.reason_code, payload.confirmed),
+            metadata=FinanceCommandMetadata(
+                payload.operation_id,
+                OperationCode("ARCHIVE_FINANCIAL_EVENT"),
+                IdempotencyKey(idempotency_key),
+                _lifecycle_fingerprint(event_id, "ARCHIVE_FINANCIAL_EVENT", payload),
+                Capability.APPROVE_OR_REJECT_SUBMISSIONS,
+            ),
+        )
+    except AuthorizationDenied as error:
+        if "context" in locals() and error.code is DenialCode.PERMISSION_DENIED:
+            await _audit_permission_denial(session, context)
+        return _lifecycle_error(request, error)
+    except Exception as error:
+        return _lifecycle_error(request, error)
+    response.headers["Idempotency-Replayed"] = "true" if replayed else "false"
+    response.headers["ETag"] = f'"v{record.version}"'
+    return FinancialEventEnvelope(data=_representation(record))
 
 
 @router.patch("/{event_id}", response_model=FinancialEventEnvelope)

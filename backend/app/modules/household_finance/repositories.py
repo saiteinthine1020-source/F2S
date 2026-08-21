@@ -65,6 +65,28 @@ class FinancialEventStatusRecord:
     occurred_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class FinancialEventReplacement:
+    event_kind: str
+    cash_direction: str
+    activity_classification_code: str
+    occurred_on: date
+    finance_category_id: UUID
+    amount: Decimal
+    currency_code: str
+    payment_method_code: str
+    counterparty_text: str | None
+    reference_text: str | None
+    notes: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class FinancialEventLifecycleRecord:
+    original: FinancialEventRecord
+    reversal: FinancialEventRecord | None = None
+    replacement: FinancialEventRecord | None = None
+
+
 class FinanceRepository(Protocol):
     """Narrow storage contract; policy-specific projections are added by owning issues."""
 
@@ -156,6 +178,32 @@ class FinanceRepository(Protocol):
         reason_code: str,
         explanation: str | None,
     ) -> FinancialEventRecord: ...
+
+    async def reverse_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        expected_version: int,
+        operation_id: UUID,
+        occurred_on: date,
+        reason_code: str,
+        correction: bool,
+        replacement: FinancialEventReplacement | None,
+    ) -> FinancialEventLifecycleRecord: ...
+
+    async def archive_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        expected_version: int,
+        reason_code: str,
+    ) -> FinancialEventRecord: ...
+
+    async def get_lifecycle_result(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> FinancialEventLifecycleRecord | None: ...
 
     async def validate_event_category(
         self,

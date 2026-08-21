@@ -42,6 +42,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Contributor-only own Pending financial-event edits with strict allowlisted fields,
   `If-Match` concurrency, preserved creator/updater attribution, atomic bounded audit
   evidence, concealed cross-workspace denials, and safe chronological status history.
+- Admin-only idempotent financial-event approval and rejection commands with row-locked
+  one-winner decisions, bounded reason contracts, confidential rejection evidence, atomic
+  audit/idempotency outcomes, and exact official-dataset gating.
 
 ### Security
 

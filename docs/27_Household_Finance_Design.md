@@ -276,6 +276,23 @@ UTC time, and the bounded public actor classification `SUBMITTER` or `WORKSPACE_
 append-only audit evidence. It returns no raw membership identifier, financial value,
 optional source text, payload copy, count, or aggregate.
 
+Issue #85 implements Admin decisions as strict idempotent `POST
+/financial-events/{id}/approvals` and `POST /financial-events/{id}/rejections` commands.
+Approval accepts `REVIEWED_AND_CONFIRMED`. Rejection accepts `DUPLICATE`,
+`INCORRECT_AMOUNT`, `INCORRECT_CATEGORY`, `INCORRECT_DATE`, `INSUFFICIENT_EVIDENCE`, or
+`OTHER`, plus a required normalized explanation of 1 through 512 characters. The
+explanation remains Confidential business evidence on the event and is excluded from audit,
+logs, idempotency evidence, safe errors, and decision responses.
+
+The current Active Admin and Household Finance capability are revalidated for initial and
+replayed requests. The repository locks the same-workspace event and rechecks
+`PENDING/NOT_EFFECTIVE`; one concurrent decision wins and every other decision receives the
+safe invalid-transition conflict. Approval writes `APPROVED/EFFECTIVE`, rejection writes
+`REJECTED/NOT_EFFECTIVE`, and both record reviewer/time/reason, increment version, append the
+bounded decision audit action, and complete terminal idempotency evidence in one transaction.
+Audit failure rolls back the decision. Only the Approved result joins the central official
+dataset predicate, exactly once; Rejected history remains attributable and non-effective.
+
 Foreign, fabricated, disabled-module, or inaccessible identifiers return the existing safe
 concealed contract. Protected finance JSON and downloads use `Cache-Control: no-store`.
 

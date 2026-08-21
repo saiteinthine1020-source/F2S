@@ -44,10 +44,14 @@ from app.modules.audit import (
 )
 from app.modules.household_finance import (
     ActivityClassification,
+    ApprovalReasonCode,
     CashDirection,
     FinanceCommandMetadata,
     FinancialEventArchiveScope,
     FinancialEventCommandService,
+    FinancialEventDecision,
+    FinancialEventDecisionCommand,
+    FinancialEventDecisionService,
     FinancialEventInProgress,
     FinancialEventKind,
     FinancialEventQuery,
@@ -64,6 +68,7 @@ from app.modules.household_finance import (
     PaymentMethod,
     PendingFinancialEventUpdateCommand,
     PendingFinancialEventUpdateService,
+    RejectionReasonCode,
 )
 from app.modules.workspace_access import (
     AuthorizationContext,
@@ -166,6 +171,21 @@ class FinancialEventUpdateRequest(BaseModel):
     notes: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
+class FinancialEventApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: UUID
+    reason_code: ApprovalReasonCode
+
+
+class FinancialEventRejectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    operation_id: UUID
+    reason_code: RejectionReasonCode
+    explanation: Annotated[str, StringConstraints(strict=True, min_length=1, max_length=512)]
+
+
 class MoneyRepresentation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -249,6 +269,13 @@ def _update_service(session: AsyncSession) -> PendingFinancialEventUpdateService
     return PendingFinancialEventUpdateService(SqlAlchemyFinanceRepository(session))
 
 
+def _decision_service(session: AsyncSession) -> FinancialEventDecisionService:
+    return FinancialEventDecisionService(
+        SqlAlchemyFinanceRepository(session),
+        IdempotencyService(SqlAlchemyIdempotencyRepository(session)),
+    )
+
+
 async def _resolve_context(
     session: AsyncSession,
     *,
@@ -266,6 +293,24 @@ async def _resolve_context(
 def _fingerprint(payload: FinancialEventCreateRequest) -> RequestFingerprint:
     canonical = json.dumps(
         payload.model_dump(mode="json"),
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    return RequestFingerprint.from_canonical_bytes(canonical)
+
+
+def _decision_fingerprint(
+    event_id: UUID,
+    decision: FinancialEventDecision,
+    payload: FinancialEventApprovalRequest | FinancialEventRejectionRequest,
+) -> RequestFingerprint:
+    canonical = json.dumps(
+        {
+            "decision": decision.value,
+            "event_id": str(event_id),
+            "payload": payload.model_dump(mode="json"),
+        },
         ensure_ascii=True,
         separators=(",", ":"),
         sort_keys=True,
@@ -557,6 +602,126 @@ async def get_financial_event_status_history(
         return _authorization_error(request, error)
     return FinancialEventStatusHistoryEnvelope(
         data=tuple(_status_representation(record) for record in history)
+    )
+
+
+async def _run_financial_event_decision(
+    *,
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventApprovalRequest | FinancialEventRejectionRequest,
+    decision: FinancialEventDecision,
+    request: Request,
+    response: Response,
+    account_id: UUID,
+    session: AsyncSession,
+    idempotency_key: str,
+) -> FinancialEventEnvelope | Response:
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        record, replayed = await _decision_service(session).decide(
+            context,
+            event_id=event_id,
+            command=FinancialEventDecisionCommand(
+                decision=decision,
+                reason_code=payload.reason_code,
+                explanation=(
+                    payload.explanation
+                    if isinstance(payload, FinancialEventRejectionRequest)
+                    else None
+                ),
+            ),
+            metadata=FinanceCommandMetadata(
+                operation_id=payload.operation_id,
+                operation=OperationCode(
+                    "APPROVE_FINANCIAL_EVENT"
+                    if decision is FinancialEventDecision.APPROVE
+                    else "REJECT_FINANCIAL_EVENT"
+                ),
+                idempotency_key=IdempotencyKey(idempotency_key),
+                request_fingerprint=_decision_fingerprint(event_id, decision, payload),
+                required_capability=Capability.APPROVE_OR_REJECT_SUBMISSIONS,
+            ),
+        )
+    except AuthorizationDenied as error:
+        if "context" in locals() and error.code is DenialCode.PERMISSION_DENIED:
+            await _audit_permission_denial(session, context)
+        return _authorization_error(request, error)
+    except IdempotencyKeyReused:
+        return _conflict(
+            request,
+            "IDEMPOTENCY_KEY_REUSED",
+            "The idempotency key is already bound to another request.",
+        )
+    except (FinancialEventInProgress, FinancialEventRecoveryRequired):
+        return _conflict(request, "CONFLICT", "The decision is already being processed.")
+    except FinancialEventReplayUnavailable:
+        return _conflict(request, "CONFLICT", "The stored decision cannot be replayed safely.")
+    except FinancialEventStateConflict:
+        return _conflict(
+            request,
+            "INVALID_STATE_TRANSITION",
+            "Only a Pending financial event can be approved or rejected.",
+        )
+    response.headers["Idempotency-Replayed"] = "true" if replayed else "false"
+    response.headers["ETag"] = f'"v{record.version}"'
+    return FinancialEventEnvelope(data=_representation(record))
+
+
+@router.post("/{event_id}/approvals", response_model=FinancialEventEnvelope)
+async def approve_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventApprovalRequest,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+    browser: BrowserBoundary,
+    idempotency_key: IdempotencyHeader,
+) -> FinancialEventEnvelope | Response:
+    del browser
+    return await _run_financial_event_decision(
+        workspace_id=workspace_id,
+        event_id=event_id,
+        payload=payload,
+        decision=FinancialEventDecision.APPROVE,
+        request=request,
+        response=response,
+        account_id=account_id,
+        session=session,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/{event_id}/rejections", response_model=FinancialEventEnvelope)
+async def reject_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventRejectionRequest,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+    browser: BrowserBoundary,
+    idempotency_key: IdempotencyHeader,
+) -> FinancialEventEnvelope | Response:
+    del browser
+    return await _run_financial_event_decision(
+        workspace_id=workspace_id,
+        event_id=event_id,
+        payload=payload,
+        decision=FinancialEventDecision.REJECT,
+        request=request,
+        response=response,
+        account_id=account_id,
+        session=session,
+        idempotency_key=idempotency_key,
     )
 
 

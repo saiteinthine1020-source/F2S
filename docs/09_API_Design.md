@@ -303,7 +303,39 @@ classification is only `SUBMITTER` or `WORKSPACE_ADMIN`; raw membership identifi
 payloads, money, optional text, counts, and aggregates are not returned. Pending edits remain
 `NOT_EFFECTIVE` and therefore stay outside every official dataset.
 
-### 6.6 Implemented membership lifecycle contract
+### 6.6 Admin financial-event decisions
+
+`POST /api/v1/workspaces/{workspace_id}/financial-events/{event_id}/approvals` and
+`POST /api/v1/workspaces/{workspace_id}/financial-events/{event_id}/rejections` are
+available only to an Active Admin with the Household Finance module enabled. Both require
+the configured browser Origin, strict JSON, and `Idempotency-Key`. They do not require
+`If-Match`: the repository serializes decisions with a row lock and rechecks the current
+state after acquiring it.
+
+The approval body contains a client-stable `operation_id` and the sole approval reason code
+`REVIEWED_AND_CONFIRMED`. The rejection body contains a client-stable `operation_id`, one of
+`DUPLICATE`, `INCORRECT_AMOUNT`, `INCORRECT_CATEGORY`, `INCORRECT_DATE`,
+`INSUFFICIENT_EVIDENCE`, or `OTHER`, and a required explanation of 1 through 512 normalized
+characters. Approval explanations are not accepted. Rejection explanations are
+Confidential business evidence: they are stored on the financial event but never copied to
+audit, logs, idempotency evidence, safe errors, or the decision response.
+
+Only `PENDING/NOT_EFFECTIVE` can transition. Approval atomically produces
+`APPROVED/EFFECTIVE`; rejection atomically produces `REJECTED/NOT_EFFECTIVE`. The decision
+records reviewer/time/reason, increments the version, appends the corresponding bounded
+`FINANCIAL_EVENT_APPROVED` or `FINANCIAL_EVENT_REJECTED` audit event, and completes the
+terminal idempotency outcome in the same transaction. Success returns the complete event,
+its new ETag, and `Idempotency-Replayed: false|true`.
+
+Matching retries return the original safe result after current Admin authority is
+revalidated. Changed fingerprints return `409 IDEMPOTENCY_KEY_REUSED`; a repeated, stale,
+or losing concurrent decision returns `409 INVALID_STATE_TRANSITION`. Contributor and
+Advisor requests return `403 PERMISSION_DENIED`; foreign or fabricated event identifiers
+use concealed `404 RESOURCE_NOT_FOUND`. Exactly one concurrent decision can win. Only the
+`APPROVED/EFFECTIVE` result satisfies the official-dataset predicate; Rejected and failed
+decisions contribute nothing.
+
+### 6.7 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
 associated email, display name, role, membership status, bounded account status, language,
@@ -340,7 +372,7 @@ authorization also rechecks current membership state and role on every request. 
 remain concealed, stale writes have no lifecycle side effect, and successful/denied changes
 write bounded audit evidence without submitted profile or identifier payloads.
 
-### 6.7 Implemented ownership-transfer contract
+### 6.8 Implemented ownership-transfer contract
 
 Ownership transfer is a strict-JSON, exact-Origin browser workflow and never a membership
 PATCH. Initiation accepts `target_membership_id`, the former owner's destination role

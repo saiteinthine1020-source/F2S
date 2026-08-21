@@ -146,6 +146,17 @@ class FinanceRepository(Protocol):
         changes: PendingFinancialEventChanges,
     ) -> FinancialEventRecord: ...
 
+    async def decide_pending_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        approval_status: str,
+        posting_status: str,
+        reason_code: str,
+        explanation: str | None,
+    ) -> FinancialEventRecord: ...
+
     async def validate_event_category(
         self,
         context: AuthorizationContext,

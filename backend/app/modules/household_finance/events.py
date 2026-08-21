@@ -7,7 +7,12 @@ from datetime import date
 from enum import StrEnum
 from uuid import UUID
 
-from app.modules.application_support import ClaimDisposition, IdempotencyService, SafeOutcome
+from app.modules.application_support import (
+    ClaimDisposition,
+    IdempotencyClaim,
+    IdempotencyService,
+    SafeOutcome,
+)
 from app.modules.household_finance.categories import ActivityClassification
 from app.modules.household_finance.contracts import (
     CanonicalFinanceEventReference,
@@ -69,7 +74,25 @@ class FinancialEventVersionMismatch(Exception):
 
 
 class FinancialEventStateConflict(Exception):
-    """The event is not an eligible own Pending submission."""
+    """The event is not eligible for the requested Pending-state transition."""
+
+
+class FinancialEventDecision(StrEnum):
+    APPROVE = "APPROVE"
+    REJECT = "REJECT"
+
+
+class ApprovalReasonCode(StrEnum):
+    REVIEWED_AND_CONFIRMED = "REVIEWED_AND_CONFIRMED"
+
+
+class RejectionReasonCode(StrEnum):
+    DUPLICATE = "DUPLICATE"
+    INCORRECT_AMOUNT = "INCORRECT_AMOUNT"
+    INCORRECT_CATEGORY = "INCORRECT_CATEGORY"
+    INCORRECT_DATE = "INCORRECT_DATE"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+    OTHER = "OTHER"
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +154,13 @@ class PendingFinancialEventUpdateCommand:
                     raise ValueError("INVALID_PENDING_EVENT_MONEY")
             elif getattr(self, field_name) is None:
                 raise ValueError("INVALID_PENDING_EVENT_FIELD")
+
+
+@dataclass(frozen=True, slots=True)
+class FinancialEventDecisionCommand:
+    decision: FinancialEventDecision
+    reason_code: ApprovalReasonCode | RejectionReasonCode
+    explanation: str | None = None
 
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
@@ -337,3 +367,145 @@ class PendingFinancialEventUpdateService:
                 ),
             ),
         )
+
+
+class FinancialEventDecisionService:
+    """Atomically approve or reject one Pending event after current Admin review."""
+
+    def __init__(
+        self,
+        finance_repository: FinanceRepository,
+        idempotency_service: IdempotencyService,
+    ) -> None:
+        self._finance_repository = finance_repository
+        self._idempotency_service = idempotency_service
+
+    async def decide(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        command: FinancialEventDecisionCommand,
+        metadata: FinanceCommandMetadata,
+    ) -> tuple[FinancialEventRecord, bool]:
+        if metadata.required_capability is not Capability.APPROVE_OR_REJECT_SUBMISSIONS:
+            raise ValueError("INVALID_REQUIRED_CAPABILITY")
+        if context.role is not WorkspaceRole.ADMIN:
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.APPROVE_OR_REJECT_SUBMISSIONS)
+        expected_operation = (
+            "APPROVE_FINANCIAL_EVENT"
+            if command.decision is FinancialEventDecision.APPROVE
+            else "REJECT_FINANCIAL_EVENT"
+        )
+        if metadata.operation.value != expected_operation:
+            raise ValueError("INVALID_OPERATION_CODE")
+
+        explanation = self._validate_decision(command)
+        claim = await self._idempotency_service.begin(
+            context,
+            operation_id=metadata.operation_id,
+            required_capability=metadata.required_capability,
+            operation=metadata.operation,
+            key=metadata.idempotency_key,
+            fingerprint=metadata.request_fingerprint,
+        )
+        if claim.disposition is ClaimDisposition.IN_PROGRESS:
+            raise FinancialEventInProgress
+        if claim.disposition is ClaimDisposition.RECOVERY_REQUIRED:
+            raise FinancialEventRecoveryRequired
+        if claim.disposition is ClaimDisposition.REPLAY:
+            return await self._replay(context, event_id=event_id, command=command, claim=claim)
+
+        approval_status = (
+            "APPROVED" if command.decision is FinancialEventDecision.APPROVE else "REJECTED"
+        )
+        posting_status = (
+            "EFFECTIVE" if command.decision is FinancialEventDecision.APPROVE else "NOT_EFFECTIVE"
+        )
+        try:
+            record = await self._finance_repository.decide_pending_event(
+                context,
+                event_id=event_id,
+                approval_status=approval_status,
+                posting_status=posting_status,
+                reason_code=command.reason_code.value,
+                explanation=explanation,
+            )
+        except AuthorizationDenied:
+            await self._idempotency_service.fail(
+                context,
+                required_capability=metadata.required_capability,
+                claim=claim,
+                outcome=SafeOutcome("RESOURCE_NOT_FOUND", 404),
+            )
+            raise
+        except FinancialEventStateConflict:
+            await self._idempotency_service.fail(
+                context,
+                required_capability=metadata.required_capability,
+                claim=claim,
+                outcome=SafeOutcome("INVALID_STATE_TRANSITION", 409),
+            )
+            raise
+
+        await self._idempotency_service.complete(
+            context,
+            required_capability=metadata.required_capability,
+            claim=claim,
+            outcome=SafeOutcome(
+                approval_status,
+                200,
+                "FINANCIAL_EVENT",
+                record.id,
+                record.version,
+            ),
+        )
+        return record, False
+
+    async def _replay(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        command: FinancialEventDecisionCommand,
+        claim: IdempotencyClaim,
+    ) -> tuple[FinancialEventRecord, bool]:
+        outcome = claim.outcome
+        if outcome is not None and outcome.code == "RESOURCE_NOT_FOUND":
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if outcome is not None and outcome.code == "INVALID_STATE_TRANSITION":
+            raise FinancialEventStateConflict
+        expected_status = (
+            "APPROVED" if command.decision is FinancialEventDecision.APPROVE else "REJECTED"
+        )
+        if (
+            outcome is None
+            or outcome.code != expected_status
+            or outcome.resource_type != "FINANCIAL_EVENT"
+            or outcome.resource_id != event_id
+        ):
+            raise FinancialEventReplayUnavailable
+        record = await self._finance_repository.get_event(context, event_id=event_id)
+        if record is None or record.approval_status != expected_status:
+            raise FinancialEventReplayUnavailable
+        return record, True
+
+    @staticmethod
+    def _validate_decision(command: FinancialEventDecisionCommand) -> str | None:
+        if command.decision is FinancialEventDecision.APPROVE:
+            if not isinstance(command.reason_code, ApprovalReasonCode):
+                raise ValueError("INVALID_APPROVAL_REASON")
+            if command.explanation is not None:
+                raise ValueError("APPROVAL_EXPLANATION_NOT_ALLOWED")
+            return None
+        if not isinstance(command.reason_code, RejectionReasonCode):
+            raise ValueError("INVALID_REJECTION_REASON")
+        explanation = normalize_optional_finance_text(
+            command.explanation,
+            maximum_length=512,
+            code="INVALID_REJECTION_EXPLANATION",
+        )
+        if explanation is None:
+            raise ValueError("REJECTION_EXPLANATION_REQUIRED")
+        return explanation

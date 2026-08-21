@@ -510,6 +510,83 @@ class SqlAlchemyFinanceRepository:
         )
         return self._event_record(event)
 
+    async def decide_pending_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        approval_status: str,
+        posting_status: str,
+        reason_code: str,
+        explanation: str | None,
+    ) -> FinancialEventRecord:
+        await self._revalidate(context)
+        if context.role.value != "ADMIN":
+            await self._audit_denial(
+                context,
+                AuditReason.PERMISSION_DENIED,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.APPROVE_OR_REJECT_SUBMISSIONS)
+        if (approval_status, posting_status) not in {
+            ("APPROVED", "EFFECTIVE"),
+            ("REJECTED", "NOT_EFFECTIVE"),
+        }:
+            raise ValueError("INVALID_FINANCIAL_EVENT_DECISION")
+        if (approval_status == "APPROVED") != (explanation is None):
+            raise ValueError("INVALID_FINANCIAL_EVENT_DECISION_EVIDENCE")
+
+        event = await self._session.scalar(
+            select(FinancialEvent)
+            .where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.id == event_id,
+            )
+            .with_for_update()
+        )
+        if event is None:
+            await self._audit_denial(
+                context,
+                AuditReason.RESOURCE_NOT_FOUND,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if (
+            event.approval_status != "PENDING"
+            or event.posting_status != "NOT_EFFECTIVE"
+            or event.archived_at is not None
+        ):
+            await self._audit_denial(
+                context,
+                AuditReason.INVALID_STATE_TRANSITION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventStateConflict
+
+        now = datetime.now(UTC)
+        event.approval_status = approval_status
+        event.posting_status = posting_status
+        event.reviewed_by_membership_id = context.membership_id
+        event.reviewed_at = now
+        event.decision_reason_code = reason_code
+        event.decision_explanation = explanation
+        event.updated_by_membership_id = context.membership_id
+        event.updated_at = now
+        event.version += 1
+        await self._session.flush()
+        await self._audit(
+            context,
+            (
+                AuditAction.FINANCIAL_EVENT_APPROVED
+                if approval_status == "APPROVED"
+                else AuditAction.FINANCIAL_EVENT_REJECTED
+            ),
+            event.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT,
+        )
+        return self._event_record(event)
+
     async def validate_event_category(
         self,
         context: AuthorizationContext,

@@ -15,8 +15,12 @@ from app.modules.household_finance.contracts import (
     FinanceCommandMetadata,
 )
 from app.modules.household_finance.events import (
+    ApprovalReasonCode,
     CashDirection,
     FinancialEventCommandService,
+    FinancialEventDecision,
+    FinancialEventDecisionCommand,
+    FinancialEventDecisionService,
     FinancialEventInProgress,
     FinancialEventKind,
     FinancialEventRecoveryRequired,
@@ -28,6 +32,7 @@ from app.modules.household_finance.events import (
     PaymentMethod,
     PendingFinancialEventUpdateCommand,
     PendingFinancialEventUpdateService,
+    RejectionReasonCode,
     normalize_optional_finance_text,
 )
 from app.modules.household_finance.queries import (
@@ -48,6 +53,7 @@ from app.modules.household_finance.repositories import (
 
 __all__ = [
     "ActivityClassification",
+    "ApprovalReasonCode",
     "CanonicalFinanceEventCommand",
     "CanonicalFinanceEventReference",
     "CashDirection",
@@ -60,6 +66,9 @@ __all__ = [
     "FinanceCommandMetadata",
     "FinanceRepository",
     "FinancialEventCommandService",
+    "FinancialEventDecision",
+    "FinancialEventDecisionCommand",
+    "FinancialEventDecisionService",
     "FinancialEventArchiveScope",
     "FinancialEventCursorPosition",
     "FinancialEventInProgress",
@@ -80,6 +89,7 @@ __all__ = [
     "PendingFinancialEventUpdateCommand",
     "PendingFinancialEventUpdateService",
     "PaymentMethod",
+    "RejectionReasonCode",
     "normalize_category_name",
     "normalize_optional_finance_text",
 ]

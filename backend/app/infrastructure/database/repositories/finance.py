@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +33,10 @@ from app.modules.household_finance import (
     FinanceCategoryRecord,
     FinanceCategoryStateConflict,
     FinanceCategoryVersionMismatch,
+    FinancialEventArchiveScope,
+    FinancialEventCursorPosition,
+    FinancialEventPage,
+    FinancialEventQuery,
     FinancialEventRecord,
     InvalidFinanceCategory,
 )
@@ -85,6 +89,105 @@ class SqlAlchemyFinanceRepository:
         if event is None:
             return None
         return self._event_record(event)
+
+    async def get_visible_event(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> FinancialEventRecord | None:
+        await self._revalidate(context)
+        statement = select(FinancialEvent).where(
+            FinancialEvent.workspace_id == context.workspace_id,
+            FinancialEvent.id == event_id,
+        )
+        if context.role.value == "CONTRIBUTOR":
+            statement = statement.where(
+                FinancialEvent.created_by_membership_id == context.membership_id
+            )
+        elif context.role.value == "ADVISOR":
+            statement = statement.where(FinancialEvent.approval_status == "APPROVED")
+        event = await self._session.scalar(statement)
+        return None if event is None else self._event_record(event)
+
+    async def list_visible_events(
+        self,
+        context: AuthorizationContext,
+        *,
+        query: FinancialEventQuery,
+    ) -> FinancialEventPage:
+        await self._revalidate(context)
+        statement = select(FinancialEvent).where(
+            FinancialEvent.workspace_id == context.workspace_id
+        )
+        if context.role.value == "CONTRIBUTOR":
+            statement = statement.where(
+                FinancialEvent.created_by_membership_id == context.membership_id
+            )
+        elif context.role.value == "ADVISOR":
+            statement = statement.where(FinancialEvent.approval_status == "APPROVED")
+
+        if query.archive_scope is FinancialEventArchiveScope.ACTIVE:
+            statement = statement.where(FinancialEvent.archived_at.is_(None))
+        elif query.archive_scope is FinancialEventArchiveScope.ARCHIVED:
+            statement = statement.where(FinancialEvent.archived_at.is_not(None))
+        if query.approval_statuses:
+            statement = statement.where(FinancialEvent.approval_status.in_(query.approval_statuses))
+        if query.occurred_from is not None:
+            statement = statement.where(FinancialEvent.occurred_on >= query.occurred_from)
+        if query.occurred_to is not None:
+            statement = statement.where(FinancialEvent.occurred_on < query.occurred_to)
+        if query.category_ids:
+            statement = statement.where(FinancialEvent.finance_category_id.in_(query.category_ids))
+        if query.event_kinds:
+            statement = statement.where(FinancialEvent.event_kind.in_(query.event_kinds))
+        if query.cash_directions:
+            statement = statement.where(FinancialEvent.cash_direction.in_(query.cash_directions))
+        if query.activity_classifications:
+            statement = statement.where(
+                FinancialEvent.activity_classification_code.in_(query.activity_classifications)
+            )
+        if query.payment_methods:
+            statement = statement.where(
+                FinancialEvent.payment_method_code.in_(query.payment_methods)
+            )
+        if query.currencies:
+            statement = statement.where(FinancialEvent.currency_code.in_(query.currencies))
+        if query.after is not None:
+            position = query.after
+            statement = statement.where(
+                or_(
+                    FinancialEvent.occurred_on < position.occurred_on,
+                    and_(
+                        FinancialEvent.occurred_on == position.occurred_on,
+                        FinancialEvent.created_at < position.created_at,
+                    ),
+                    and_(
+                        FinancialEvent.occurred_on == position.occurred_on,
+                        FinancialEvent.created_at == position.created_at,
+                        FinancialEvent.id > position.event_id,
+                    ),
+                )
+            )
+
+        rows = (
+            await self._session.scalars(
+                statement.order_by(
+                    FinancialEvent.occurred_on.desc(),
+                    FinancialEvent.created_at.desc(),
+                    FinancialEvent.id.asc(),
+                ).limit(query.page_size + 1)
+            )
+        ).all()
+        has_more = len(rows) > query.page_size
+        visible_rows = rows[: query.page_size]
+        records = tuple(self._event_record(event) for event in visible_rows)
+        next_position = None
+        if has_more:
+            last = visible_rows[-1]
+            next_position = FinancialEventCursorPosition(
+                occurred_on=last.occurred_on,
+                created_at=last.created_at,
+                event_id=last.id,
+            )
+        return FinancialEventPage(records=records, next_position=next_position)
 
     async def list_categories(
         self, context: AuthorizationContext, *, include_archived: bool
@@ -330,6 +433,8 @@ class SqlAlchemyFinanceRepository:
             approval_status=event.approval_status,
             posting_status=event.posting_status,
             version=event.version,
+            created_at=event.created_at,
+            archived_at=event.archived_at,
         )
 
     async def _audit(

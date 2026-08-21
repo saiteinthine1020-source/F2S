@@ -235,6 +235,23 @@ creation commits `APPROVED/EFFECTIVE`; Contributor creation commits
 idempotency outcome commit in the same transaction, and matching replay returns the original
 safe representation after current authorization is revalidated.
 
+Issue #83 implements item and collection `GET /financial-events` reads with role predicates
+inside the workspace-scoped repository. Admin reads permitted workspace events, Contributor
+reads only their own submissions, and Advisor reads only Approved events. Lists accept the
+allowlisted status, inclusive/exclusive occurred-date, category, kind, direction, activity,
+payment, currency, and archive filters. Repeated categorical values are OR within one field;
+fields combine with AND. Default browsing excludes archived events.
+
+The stable order is `occurred_on DESC, created_at DESC, id ASC`; page size defaults to 25 and
+is bounded at 100. The next cursor is integrity protected, expires after 24 hours, and is
+bound to the current workspace, membership, role, filters, archive scope, and sort. List
+metadata contains no count or aggregate. The response declares `ALL_PERMITTED`,
+`OWN_SUBMISSIONS`, or `APPROVED_ONLY` visibility and preserves exact decimal strings.
+Foreign and role-invisible item IDs are concealed, and protected responses remain no-store.
+Because section 15 defers farming source links, a syntactically valid
+`farming_investment_id` is recognized but returns `INVALID_FILTER` in Phase 2 rather than
+being ignored or confused with FARM activity classification.
+
 Foreign, fabricated, disabled-module, or inaccessible identifiers return the existing safe
 concealed contract. Protected finance JSON and downloads use `Cache-Control: no-store`.
 

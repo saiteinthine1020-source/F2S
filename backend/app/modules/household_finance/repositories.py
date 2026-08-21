@@ -1,12 +1,15 @@
 """Framework-free read contracts for workspace-scoped finance persistence."""
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
 
 from app.modules.workspace_access.authorization import AuthorizationContext
+
+if TYPE_CHECKING:
+    from app.modules.household_finance.queries import FinancialEventPage, FinancialEventQuery
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +39,8 @@ class FinancialEventRecord:
     approval_status: str
     posting_status: str
     version: int
+    created_at: datetime | None = None
+    archived_at: datetime | None = None
 
 
 class FinanceRepository(Protocol):
@@ -48,6 +53,17 @@ class FinanceRepository(Protocol):
     async def get_event(
         self, context: AuthorizationContext, *, event_id: UUID
     ) -> FinancialEventRecord | None: ...
+
+    async def get_visible_event(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> FinancialEventRecord | None: ...
+
+    async def list_visible_events(
+        self,
+        context: AuthorizationContext,
+        *,
+        query: "FinancialEventQuery",
+    ) -> "FinancialEventPage": ...
 
     async def list_categories(
         self, context: AuthorizationContext, *, include_archived: bool

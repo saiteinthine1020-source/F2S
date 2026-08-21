@@ -36,6 +36,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Strict workspace-scoped manual income and expense creation with exact money strings,
   category compatibility, Admin-approved and Contributor-pending states, safe audit evidence,
   atomic idempotent replay, role/module enforcement, and concealed cross-workspace failures.
+- Role-aware financial-event detail and filtered list APIs with database-enforced visibility,
+  inclusive/exclusive business dates, stable keyset ordering, scope-bound expiring cursors,
+  exact money strings, count-free Contributor metadata, and concealed foreign identifiers.
 
 ### Security
 

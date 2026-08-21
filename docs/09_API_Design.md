@@ -241,7 +241,38 @@ numeric violations use safe validation failure. No error stores or reflects mone
 counterparty, reference, notes, raw idempotency key, or request body in audit/idempotency
 evidence.
 
-### 6.4 Implemented membership lifecycle contract
+### 6.4 Financial-event detail and filtered lists
+
+`GET /api/v1/workspaces/{workspace_id}/financial-events/{event_id}` and collection `GET`
+require an Active same-workspace membership and the enabled Household Finance module. Admin
+may read permitted workspace events, Contributor reads only their own submissions, and
+Advisor reads only Approved events. These predicates are applied in the database query;
+foreign, fabricated, and role-invisible item IDs all return the same concealed `404
+RESOURCE_NOT_FOUND`. Item responses carry the current ETag. Every protected response uses
+`Cache-Control: no-store`.
+
+The collection accepts repeated `status`, `category_id`, `event_kind`, `direction`,
+`activity_classification`, `payment_method`, and `currency` parameters as OR within that
+field. Different fields combine with AND. `occurred_from` is inclusive and `occurred_to` is
+exclusive; both are business dates and `occurred_from` must be earlier than `occurred_to`.
+`archived=ACTIVE|ARCHIVED|ALL` defaults to `ACTIVE`. Default and only Phase 2 sort is
+`-occurred_on,-created_at,id`. `page_size` defaults to 25 and accepts 1 through 100.
+
+`farming_investment_id` is a recognized but incompatible Phase 2 filter because the focused
+design explicitly defers canonical farming source links. It returns `400 INVALID_FILTER`
+rather than being ignored or interpreted as FARM classification. Unknown parameters return
+`400 UNKNOWN_FILTER`; unsupported sorts return `400 INVALID_SORT`; malformed, unsupported,
+or role-incompatible values return `400 INVALID_FILTER`.
+
+Lists use keyset pagination over `occurred_on DESC, created_at DESC, id ASC`. `next_cursor`
+is an integrity-protected, 24-hour, opaque value bound to the workspace, current membership,
+role, filters, archive scope, and sort. A malformed, expired, tampered, cross-scope, or
+filter-incompatible cursor returns `400 INVALID_CURSOR`. Responses contain `data` and only
+`next_cursor`, `page_size`, effective `sort`, and a role visibility code in `meta`; they never
+contain a total count or financial aggregate. Money is always a fixed-scale string paired
+with its currency.
+
+### 6.5 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
 associated email, display name, role, membership status, bounded account status, language,

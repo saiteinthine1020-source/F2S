@@ -161,7 +161,10 @@ def test_cursor_cannot_be_reused_with_changed_filters(monkeypatch: object) -> No
         first = client.get(f"{path}?status=APPROVED&page_size=1")
         cursor = first.json()["meta"]["next_cursor"]
         changed = client.get(f"{path}?status=PENDING&page_size=1&after={cursor}")
-        tampered = client.get(f"{path}?status=APPROVED&page_size=1&after={cursor[:-1]}0")
+        replacement = "0" if cursor[-1] != "0" else "1"
+        tampered = client.get(
+            f"{path}?status=APPROVED&page_size=1&after={cursor[:-1]}{replacement}"
+        )
 
     assert changed.status_code == 400
     assert changed.json()["error"]["code"] == "INVALID_CURSOR"

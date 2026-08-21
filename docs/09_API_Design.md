@@ -335,7 +335,47 @@ use concealed `404 RESOURCE_NOT_FOUND`. Exactly one concurrent decision can win.
 `APPROVED/EFFECTIVE` result satisfies the official-dataset predicate; Rejected and failed
 decisions contribute nothing.
 
-### 6.7 Implemented membership lifecycle contract
+### 6.7 Admin financial-event lifecycle commands
+
+The three explicit append-only commands are:
+
+- `POST .../financial-events/{event_id}/reversals`;
+- `POST .../financial-events/{event_id}/corrections`; and
+- `POST .../financial-events/{event_id}/archivals`.
+
+Each command is Admin-only and requires the configured browser Origin, strict JSON,
+`Idempotency-Key`, `If-Match: "vN"`, a client-stable `operation_id`, an allowlisted
+`reason_code`, and `confirmed: true`. Accepted reason codes are `DUPLICATE`,
+`ENTERED_IN_ERROR`, `INCORRECT_AMOUNT`, `INCORRECT_CATEGORY`, `INCORRECT_DATE`,
+`INCORRECT_CLASSIFICATION`, `INCORRECT_PAYMENT_METHOD`, and `OTHER`. Missing confirmation
+fails validation; missing, malformed, or stale preconditions return the standard `428` or
+`412` outcome.
+
+A reversal also supplies `occurred_on`. The response returns the versioned original in
+`APPROVED/REVERSED`, its new opposite-direction `APPROVED/EFFECTIVE` reversal with exactly
+the same magnitude and currency, and a null replacement. A correction supplies
+`reversal_occurred_on` and may include one complete replacement event using the same strict
+fields and money rules as ordinary creation. The replacement is created
+`APPROVED/EFFECTIVE` and links directly to the corrected original. A correction without a
+replacement is still an explicit correction operation and preserves its audit action.
+
+Archival returns the event with archive evidence and a new ETag. It is permitted only for a
+terminal approval state, changes default discoverability, and never changes approval or
+posting state. Therefore an archived effective event remains in official datasets. Only a
+reversal neutralises an Approved posting.
+
+The repository revalidates current authority, locks the same-workspace original, compares
+the version, and rechecks eligibility before writing. Original-state change, reversal,
+optional replacement, archive evidence, bounded audit action, and terminal idempotency
+outcome share one transaction. Replays with the same key and fingerprint return the stored
+safe result; changed fingerprints conflict. A reversal cannot target a reversal or a
+non-effective event, and the schema plus row lock permits only one effective reversal.
+Foreign and fabricated IDs use concealed `404 RESOURCE_NOT_FOUND`; duplicate or otherwise
+ineligible transitions use `409 INVALID_STATE_TRANSITION`. Unexpected failure rolls back
+every event, audit, and idempotency write, after which operators retry the same command only
+after reconciling its canonical operation evidence.
+
+### 6.8 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
 associated email, display name, role, membership status, bounded account status, language,
@@ -372,7 +412,7 @@ authorization also rechecks current membership state and role on every request. 
 remain concealed, stale writes have no lifecycle side effect, and successful/denied changes
 write bounded audit evidence without submitted profile or identifier payloads.
 
-### 6.8 Implemented ownership-transfer contract
+### 6.9 Implemented ownership-transfer contract
 
 Ownership transfer is a strict-JSON, exact-Origin browser workflow and never a membership
 PATCH. Initiation accepts `target_membership_id`, the former owner's destination role

@@ -168,6 +168,23 @@ Archive hides an event from default active browsing but never removes an Approve
 posting from official totals. Archived filters can retrieve it. Only reversal changes cash
 effect.
 
+The implemented lifecycle boundary serializes all three commands by locking the
+same-workspace original. The reversal copies the original positive magnitude and currency,
+uses the opposite cash direction, and records the requested business date. Correction uses
+the same reversal operation and may atomically create one full Approved replacement linked
+directly to that original. Replacement operations use a deterministic child operation ID so
+both inserted events remain uniquely attributable to the one client command. Archive is
+allowed only after the approval state is terminal and adds actor, time, reason, and version
+evidence without changing posting status.
+
+Successful lifecycle writes append `FINANCIAL_EVENT_REVERSED`,
+`FINANCIAL_EVENT_CORRECTED`, or `FINANCIAL_EVENT_ARCHIVED` audit evidence in the same
+transaction. Row locks and the effective-reversal uniqueness constraint produce one winner
+under concurrency. A safe terminal idempotency outcome identifies the original event and
+new version; replay reconstructs its direct reversal and replacement links. Audit or
+idempotency failure rolls back the entire lifecycle operation. Recovery therefore starts by
+reconciling the operation ID and canonical links rather than issuing a different command.
+
 ### 6.2 Official dataset predicate
 
 The Calculation/Data Quality owner exposes one reusable selector equivalent to:

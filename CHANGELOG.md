@@ -45,6 +45,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Admin-only idempotent financial-event approval and rejection commands with row-locked
   one-winner decisions, bounded reason contracts, confidential rejection evidence, atomic
   audit/idempotency outcomes, and exact official-dataset gating.
+- Admin-only financial-event reversal, correction, replacement, and archive commands with
+  exact conservation, explicit confirmation and ETags, canonical links, one-winner locking,
+  safe replay, concealed isolation, and transaction-bound audit evidence.
 
 ### Security
 

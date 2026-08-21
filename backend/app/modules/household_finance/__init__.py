@@ -35,6 +35,14 @@ from app.modules.household_finance.events import (
     RejectionReasonCode,
     normalize_optional_finance_text,
 )
+from app.modules.household_finance.lifecycle import (
+    FinancialEventArchiveCommand,
+    FinancialEventCorrectionCommand,
+    FinancialEventLifecycleReason,
+    FinancialEventLifecycleService,
+    FinancialEventLifecycleStateConflict,
+    FinancialEventReversalCommand,
+)
 from app.modules.household_finance.queries import (
     FinancialEventArchiveScope,
     FinancialEventCursorPosition,
@@ -46,7 +54,9 @@ from app.modules.household_finance.queries import (
 from app.modules.household_finance.repositories import (
     FinanceCategoryRecord,
     FinanceRepository,
+    FinancialEventLifecycleRecord,
     FinancialEventRecord,
+    FinancialEventReplacement,
     FinancialEventStatusRecord,
     PendingFinancialEventChanges,
 )
@@ -66,6 +76,8 @@ __all__ = [
     "FinanceCommandMetadata",
     "FinanceRepository",
     "FinancialEventCommandService",
+    "FinancialEventArchiveCommand",
+    "FinancialEventCorrectionCommand",
     "FinancialEventDecision",
     "FinancialEventDecisionCommand",
     "FinancialEventDecisionService",
@@ -73,7 +85,13 @@ __all__ = [
     "FinancialEventCursorPosition",
     "FinancialEventInProgress",
     "FinancialEventKind",
+    "FinancialEventLifecycleReason",
+    "FinancialEventLifecycleRecord",
+    "FinancialEventLifecycleService",
+    "FinancialEventLifecycleStateConflict",
     "FinancialEventRecord",
+    "FinancialEventReplacement",
+    "FinancialEventReversalCommand",
     "FinancialEventPage",
     "FinancialEventQuery",
     "FinancialEventQueryService",

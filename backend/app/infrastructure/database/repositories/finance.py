@@ -2,7 +2,7 @@
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -36,9 +36,12 @@ from app.modules.household_finance import (
     FinanceCategoryVersionMismatch,
     FinancialEventArchiveScope,
     FinancialEventCursorPosition,
+    FinancialEventLifecycleRecord,
+    FinancialEventLifecycleStateConflict,
     FinancialEventPage,
     FinancialEventQuery,
     FinancialEventRecord,
+    FinancialEventReplacement,
     FinancialEventStateConflict,
     FinancialEventStatusRecord,
     FinancialEventVersionMismatch,
@@ -586,6 +589,244 @@ class SqlAlchemyFinanceRepository:
             resource_type=AuditResourceType.FINANCIAL_EVENT,
         )
         return self._event_record(event)
+
+    async def reverse_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        expected_version: int,
+        operation_id: UUID,
+        occurred_on: date,
+        reason_code: str,
+        correction: bool,
+        replacement: FinancialEventReplacement | None,
+    ) -> FinancialEventLifecycleRecord:
+        await self._revalidate(context)
+        if context.role.value != "ADMIN":
+            await self._audit_denial(
+                context,
+                AuditReason.PERMISSION_DENIED,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.APPROVE_OR_REJECT_SUBMISSIONS)
+        original = await self._session.scalar(
+            select(FinancialEvent)
+            .where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.id == event_id,
+            )
+            .with_for_update()
+        )
+        if original is None:
+            await self._audit_denial(
+                context,
+                AuditReason.RESOURCE_NOT_FOUND,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if original.version != expected_version:
+            await self._audit_denial(
+                context,
+                AuditReason.STALE_VERSION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventVersionMismatch
+        if (
+            original.approval_status != "APPROVED"
+            or original.posting_status != "EFFECTIVE"
+            or original.reverses_financial_event_id is not None
+        ):
+            await self._audit_denial(
+                context,
+                AuditReason.INVALID_STATE_TRANSITION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventLifecycleStateConflict
+
+        now = datetime.now(UTC)
+        reversal = FinancialEvent(
+            workspace_id=context.workspace_id,
+            event_kind=(
+                "MANUAL_EXPENSE" if original.cash_direction == "INFLOW" else "MANUAL_INCOME"
+            ),
+            cash_direction="OUTFLOW" if original.cash_direction == "INFLOW" else "INFLOW",
+            activity_classification_code=original.activity_classification_code,
+            occurred_on=occurred_on,
+            finance_category_id=original.finance_category_id,
+            amount=original.amount,
+            currency_code=original.currency_code,
+            payment_method_code=original.payment_method_code,
+            counterparty_text=original.counterparty_text,
+            reference_text=original.reference_text,
+            notes=original.notes,
+            approval_status="APPROVED",
+            posting_status="EFFECTIVE",
+            reviewed_by_membership_id=context.membership_id,
+            reviewed_at=now,
+            decision_reason_code=reason_code,
+            reverses_financial_event_id=original.id,
+            operation_id=operation_id,
+            created_by_membership_id=context.membership_id,
+            updated_by_membership_id=context.membership_id,
+            created_at=now,
+            updated_at=now,
+            version=1,
+        )
+        self._session.add(reversal)
+        replacement_event: FinancialEvent | None = None
+        if replacement is not None:
+            replacement_event = FinancialEvent(
+                workspace_id=context.workspace_id,
+                event_kind=replacement.event_kind,
+                cash_direction=replacement.cash_direction,
+                activity_classification_code=replacement.activity_classification_code,
+                occurred_on=replacement.occurred_on,
+                finance_category_id=replacement.finance_category_id,
+                amount=replacement.amount,
+                currency_code=replacement.currency_code,
+                payment_method_code=replacement.payment_method_code,
+                counterparty_text=replacement.counterparty_text,
+                reference_text=replacement.reference_text,
+                notes=replacement.notes,
+                approval_status="APPROVED",
+                posting_status="EFFECTIVE",
+                reviewed_by_membership_id=context.membership_id,
+                reviewed_at=now,
+                decision_reason_code="CORRECTION_REPLACEMENT",
+                replacement_for_financial_event_id=original.id,
+                operation_id=uuid5(operation_id, "replacement"),
+                created_by_membership_id=context.membership_id,
+                updated_by_membership_id=context.membership_id,
+                created_at=now,
+                updated_at=now,
+                version=1,
+            )
+            self._session.add(replacement_event)
+
+        # The database guard validates a new reversal against the original's
+        # still-effective state. Both writes remain in this transaction, but
+        # their flush order is part of the canonical transition contract.
+        await self._session.flush()
+        original.posting_status = "REVERSED"
+        original.updated_by_membership_id = context.membership_id
+        original.updated_at = now
+        original.version += 1
+        await self._session.flush()
+        await self._audit(
+            context,
+            (
+                AuditAction.FINANCIAL_EVENT_CORRECTED
+                if correction
+                else AuditAction.FINANCIAL_EVENT_REVERSED
+            ),
+            original.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT,
+        )
+        return FinancialEventLifecycleRecord(
+            original=self._event_record(original),
+            reversal=self._event_record(reversal),
+            replacement=(
+                self._event_record(replacement_event) if replacement_event is not None else None
+            ),
+        )
+
+    async def archive_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        expected_version: int,
+        reason_code: str,
+    ) -> FinancialEventRecord:
+        await self._revalidate(context)
+        if context.role.value != "ADMIN":
+            await self._audit_denial(
+                context,
+                AuditReason.PERMISSION_DENIED,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.APPROVE_OR_REJECT_SUBMISSIONS)
+        event = await self._session.scalar(
+            select(FinancialEvent)
+            .where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.id == event_id,
+            )
+            .with_for_update()
+        )
+        if event is None:
+            await self._audit_denial(
+                context,
+                AuditReason.RESOURCE_NOT_FOUND,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if event.version != expected_version:
+            await self._audit_denial(
+                context,
+                AuditReason.STALE_VERSION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventVersionMismatch
+        if event.approval_status == "PENDING" or event.archived_at is not None:
+            await self._audit_denial(
+                context,
+                AuditReason.INVALID_STATE_TRANSITION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventLifecycleStateConflict
+        now = datetime.now(UTC)
+        event.archived_at = now
+        event.archived_by_membership_id = context.membership_id
+        event.archive_reason_code = reason_code
+        event.updated_by_membership_id = context.membership_id
+        event.updated_at = now
+        event.version += 1
+        await self._session.flush()
+        await self._audit(
+            context,
+            AuditAction.FINANCIAL_EVENT_ARCHIVED,
+            event.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT,
+        )
+        return self._event_record(event)
+
+    async def get_lifecycle_result(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> FinancialEventLifecycleRecord | None:
+        await self._revalidate(context)
+        original = await self._session.scalar(
+            select(FinancialEvent).where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.id == event_id,
+            )
+        )
+        if original is None:
+            return None
+        reversal = await self._session.scalar(
+            select(FinancialEvent).where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.reverses_financial_event_id == event_id,
+                FinancialEvent.approval_status == "APPROVED",
+                FinancialEvent.posting_status == "EFFECTIVE",
+            )
+        )
+        replacement = await self._session.scalar(
+            select(FinancialEvent)
+            .where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.replacement_for_financial_event_id == event_id,
+            )
+            .order_by(FinancialEvent.created_at.desc())
+        )
+        return FinancialEventLifecycleRecord(
+            original=self._event_record(original),
+            reversal=self._event_record(reversal) if reversal is not None else None,
+            replacement=(self._event_record(replacement) if replacement is not None else None),
+        )
 
     async def validate_event_category(
         self,

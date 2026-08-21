@@ -26,6 +26,14 @@ from app.modules.household_finance.events import (
     PaymentMethod,
     normalize_optional_finance_text,
 )
+from app.modules.household_finance.queries import (
+    FinancialEventArchiveScope,
+    FinancialEventCursorPosition,
+    FinancialEventPage,
+    FinancialEventQuery,
+    FinancialEventQueryService,
+    InvalidFinancialEventFilter,
+)
 from app.modules.household_finance.repositories import (
     FinanceCategoryRecord,
     FinanceRepository,
@@ -46,12 +54,18 @@ __all__ = [
     "FinanceCommandMetadata",
     "FinanceRepository",
     "FinancialEventCommandService",
+    "FinancialEventArchiveScope",
+    "FinancialEventCursorPosition",
     "FinancialEventInProgress",
     "FinancialEventKind",
     "FinancialEventRecord",
+    "FinancialEventPage",
+    "FinancialEventQuery",
+    "FinancialEventQueryService",
     "FinancialEventRecoveryRequired",
     "FinancialEventReplayUnavailable",
     "InvalidFinanceCategory",
+    "InvalidFinancialEventFilter",
     "ManualFinancialEventCommand",
     "PaymentMethod",
     "normalize_category_name",

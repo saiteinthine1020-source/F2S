@@ -1,7 +1,11 @@
 """Strict workspace-scoped manual income and expense creation API."""
 
+import hashlib
 import json
+import re
+from dataclasses import replace
 from datetime import date
+from enum import StrEnum
 from typing import Annotated
 from uuid import UUID
 
@@ -12,6 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.bootstrap import Session
 from app.api.browser_security import BrowserRequest, require_browser_request
 from app.api.errors import correlation_for, safe_error
+from app.api.financial_event_cursors import (
+    InvalidFinancialEventCursor,
+    decode_financial_event_cursor,
+    encode_financial_event_cursor,
+)
 from app.api.security import AuthenticatedAccountId
 from app.infrastructure.database.repositories.audit import SqlAlchemyAuditWriter
 from app.infrastructure.database.repositories.finance import SqlAlchemyFinanceRepository
@@ -34,14 +43,19 @@ from app.modules.audit import (
 )
 from app.modules.household_finance import (
     ActivityClassification,
+    CashDirection,
     FinanceCommandMetadata,
+    FinancialEventArchiveScope,
     FinancialEventCommandService,
     FinancialEventInProgress,
     FinancialEventKind,
+    FinancialEventQuery,
+    FinancialEventQueryService,
     FinancialEventRecord,
     FinancialEventRecoveryRequired,
     FinancialEventReplayUnavailable,
     InvalidFinanceCategory,
+    InvalidFinancialEventFilter,
     ManualFinancialEventCommand,
     PaymentMethod,
 )
@@ -67,6 +81,45 @@ StrictCurrency = Annotated[
     str,
     StringConstraints(strict=True, pattern=r"^[A-Z]{3}$"),
 ]
+_DEFAULT_SORT = "-occurred_on,-created_at,id"
+_ALLOWED_QUERY_PARAMETERS = frozenset(
+    {
+        "status",
+        "occurred_from",
+        "occurred_to",
+        "category_id",
+        "event_kind",
+        "direction",
+        "activity_classification",
+        "payment_method",
+        "currency",
+        "archived",
+        "farming_investment_id",
+        "page_size",
+        "after",
+        "sort",
+    }
+)
+
+
+class ApprovalStatus(StrEnum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class FinancialEventVisibility(StrEnum):
+    ALL_PERMITTED = "ALL_PERMITTED"
+    OWN_SUBMISSIONS = "OWN_SUBMISSIONS"
+    APPROVED_ONLY = "APPROVED_ONLY"
+
+
+class UnknownFinancialEventFilter(Exception):
+    pass
+
+
+class InvalidFinancialEventSort(Exception):
+    pass
 
 
 class MoneyRequest(BaseModel):
@@ -123,11 +176,31 @@ class FinancialEventEnvelope(BaseModel):
     data: FinancialEventRepresentation
 
 
+class FinancialEventListMetadata(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    next_cursor: str | None
+    page_size: int
+    sort: str
+    visibility: FinancialEventVisibility
+
+
+class FinancialEventListEnvelope(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    data: tuple[FinancialEventRepresentation, ...]
+    meta: FinancialEventListMetadata
+
+
 def _service(session: AsyncSession) -> FinancialEventCommandService:
     return FinancialEventCommandService(
         SqlAlchemyFinanceRepository(session),
         IdempotencyService(SqlAlchemyIdempotencyRepository(session)),
     )
+
+
+def _query_service(session: AsyncSession) -> FinancialEventQueryService:
+    return FinancialEventQueryService(SqlAlchemyFinanceRepository(session))
 
 
 async def _resolve_context(
@@ -176,6 +249,215 @@ def _representation(record: FinancialEventRecord) -> FinancialEventRepresentatio
         posting_status=record.posting_status,
         version=record.version,
     )
+
+
+def _single_query_value(request: Request, name: str) -> str | None:
+    values = request.query_params.getlist(name)
+    if len(values) > 1:
+        raise InvalidFinancialEventFilter
+    return values[0] if values else None
+
+
+def _enum_query_values[EnumValue: StrEnum](
+    request: Request, name: str, value_type: type[EnumValue]
+) -> tuple[str, ...]:
+    try:
+        return tuple(
+            sorted({value_type(value).value for value in request.query_params.getlist(name)})
+        )
+    except ValueError as error:
+        raise InvalidFinancialEventFilter from error
+
+
+def _uuid_query_values(request: Request, name: str) -> tuple[UUID, ...]:
+    try:
+        return tuple(sorted({UUID(value) for value in request.query_params.getlist(name)}))
+    except ValueError as error:
+        raise InvalidFinancialEventFilter from error
+
+
+def _date_query_value(request: Request, name: str) -> date | None:
+    value = _single_query_value(request, name)
+    if value is None:
+        return None
+    if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value, re.ASCII) is None:
+        raise InvalidFinancialEventFilter
+    try:
+        return date.fromisoformat(value)
+    except ValueError as error:
+        raise InvalidFinancialEventFilter from error
+
+
+def _page_size(request: Request) -> int:
+    value = _single_query_value(request, "page_size")
+    if value is None:
+        return 25
+    if re.fullmatch(r"[1-9][0-9]{0,2}", value, re.ASCII) is None:
+        raise InvalidFinancialEventFilter
+    parsed = int(value)
+    if not 1 <= parsed <= 100:
+        raise InvalidFinancialEventFilter
+    return parsed
+
+
+def _query_scope(context: AuthorizationContext, query: FinancialEventQuery) -> str:
+    canonical = json.dumps(
+        {
+            "workspace": str(context.workspace_id),
+            "membership": str(context.membership_id),
+            "role": context.role.value,
+            "status": query.approval_statuses,
+            "occurred_from": (
+                query.occurred_from.isoformat() if query.occurred_from is not None else None
+            ),
+            "occurred_to": (
+                query.occurred_to.isoformat() if query.occurred_to is not None else None
+            ),
+            "category_id": tuple(str(value) for value in query.category_ids),
+            "event_kind": query.event_kinds,
+            "direction": query.cash_directions,
+            "activity_classification": query.activity_classifications,
+            "payment_method": query.payment_methods,
+            "currency": query.currencies,
+            "archived": query.archive_scope.value,
+            "sort": _DEFAULT_SORT,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _parse_event_query(
+    request: Request, context: AuthorizationContext
+) -> tuple[FinancialEventQuery, str]:
+    unknown = set(request.query_params) - _ALLOWED_QUERY_PARAMETERS
+    if unknown:
+        raise UnknownFinancialEventFilter
+    sort = _single_query_value(request, "sort")
+    if sort is not None and sort != _DEFAULT_SORT:
+        raise InvalidFinancialEventSort
+    farming_ids = _uuid_query_values(request, "farming_investment_id")
+    if farming_ids:
+        # Phase 2 explicitly defers canonical farming source links.
+        raise InvalidFinancialEventFilter
+    currencies = tuple(sorted(set(request.query_params.getlist("currency"))))
+    for currency_code in currencies:
+        INITIAL_CURRENCY_REGISTRY.require(currency_code)
+    archive_value = _single_query_value(request, "archived") or "ACTIVE"
+    try:
+        archive_scope = FinancialEventArchiveScope(archive_value)
+    except ValueError as error:
+        raise InvalidFinancialEventFilter from error
+    query = FinancialEventQuery(
+        approval_statuses=_enum_query_values(request, "status", ApprovalStatus),
+        occurred_from=_date_query_value(request, "occurred_from"),
+        occurred_to=_date_query_value(request, "occurred_to"),
+        category_ids=_uuid_query_values(request, "category_id"),
+        event_kinds=_enum_query_values(request, "event_kind", FinancialEventKind),
+        cash_directions=_enum_query_values(request, "direction", CashDirection),
+        activity_classifications=_enum_query_values(
+            request, "activity_classification", ActivityClassification
+        ),
+        payment_methods=_enum_query_values(request, "payment_method", PaymentMethod),
+        currencies=currencies,
+        archive_scope=archive_scope,
+        page_size=_page_size(request),
+    )
+    scope = _query_scope(context, query)
+    after = _single_query_value(request, "after")
+    if after is not None:
+        query = replace(
+            query,
+            after=decode_financial_event_cursor(
+                after,
+                expected_scope=scope,
+                digests=request.app.state.keyed_digests,
+            ),
+        )
+    return query, scope
+
+
+def _visibility(context: AuthorizationContext) -> FinancialEventVisibility:
+    if context.role.value == "CONTRIBUTOR":
+        return FinancialEventVisibility.OWN_SUBMISSIONS
+    if context.role.value == "ADVISOR":
+        return FinancialEventVisibility.APPROVED_ONLY
+    return FinancialEventVisibility.ALL_PERMITTED
+
+
+@router.get("", response_model=FinancialEventListEnvelope)
+async def list_financial_events(
+    workspace_id: UUID,
+    request: Request,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+) -> FinancialEventListEnvelope | Response:
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        query, scope = _parse_event_query(request, context)
+        page = await _query_service(session).list_events(context, query=query)
+    except AuthorizationDenied as error:
+        return _authorization_error(request, error)
+    except UnknownFinancialEventFilter:
+        return _query_error(request, "UNKNOWN_FILTER", "The query contains an unknown filter.")
+    except InvalidFinancialEventSort:
+        return _query_error(request, "INVALID_SORT", "The requested sort is not supported.")
+    except InvalidFinancialEventCursor:
+        return _query_error(request, "INVALID_CURSOR", "The pagination cursor is invalid.")
+    except (InvalidFinancialEventFilter, ValueError):
+        return _query_error(request, "INVALID_FILTER", "The requested filters are invalid.")
+
+    next_cursor = (
+        encode_financial_event_cursor(
+            page.next_position,
+            scope=scope,
+            digests=request.app.state.keyed_digests,
+        )
+        if page.next_position is not None
+        else None
+    )
+    return FinancialEventListEnvelope(
+        data=tuple(_representation(record) for record in page.records),
+        meta=FinancialEventListMetadata(
+            next_cursor=next_cursor,
+            page_size=query.page_size,
+            sort=_DEFAULT_SORT,
+            visibility=_visibility(context),
+        ),
+    )
+
+
+@router.get("/{event_id}", response_model=FinancialEventEnvelope)
+async def get_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+) -> FinancialEventEnvelope | Response:
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        record = await _query_service(session).get_event(context, event_id=event_id)
+        if record is None:
+            await _audit_access_denial(session, context, AuditReason.RESOURCE_NOT_FOUND)
+            return _authorization_error(request, AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND))
+    except AuthorizationDenied as error:
+        return _authorization_error(request, error)
+    response.headers["ETag"] = f'"v{record.version}"'
+    return FinancialEventEnvelope(data=_representation(record))
 
 
 @router.post("", response_model=FinancialEventEnvelope, status_code=status.HTTP_201_CREATED)
@@ -257,6 +539,12 @@ async def create_financial_event(
 
 
 async def _audit_permission_denial(session: AsyncSession, context: AuthorizationContext) -> None:
+    await _audit_access_denial(session, context, AuditReason.PERMISSION_DENIED)
+
+
+async def _audit_access_denial(
+    session: AsyncSession, context: AuthorizationContext, reason: AuditReason
+) -> None:
     await SqlAlchemyAuditWriter(session).append(
         AuditEventIntent(
             scope=AuditScope.WORKSPACE,
@@ -267,7 +555,7 @@ async def _audit_permission_denial(session: AsyncSession, context: Authorization
             result=AuditResult.DENIED,
             correlation_id=context.correlation_id,
             resource_type=AuditResourceType.FINANCIAL_EVENT,
-            reason=AuditReason.PERMISSION_DENIED,
+            reason=reason,
             source=AuditSource.API,
             context=AuditContext.FINANCE_ENTRY,
         )
@@ -291,6 +579,15 @@ def _authorization_error(request: Request, error: AuthorizationDenied) -> Respon
 def _conflict(request: Request, code: str, message: str) -> Response:
     return safe_error(
         status_code=409,
+        code=code,
+        message=message,
+        correlation_id=correlation_for(request),
+    )
+
+
+def _query_error(request: Request, code: str, message: str) -> Response:
+    return safe_error(
+        status_code=400,
         code=code,
         message=message,
         correlation_id=correlation_for(request),

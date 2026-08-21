@@ -272,7 +272,38 @@ filter-incompatible cursor returns `400 INVALID_CURSOR`. Responses contain `data
 contain a total count or financial aggregate. Money is always a fixed-scale string paired
 with its currency.
 
-### 6.5 Implemented membership lifecycle contract
+### 6.5 Contributor Pending edits and status history
+
+`PATCH /api/v1/workspaces/{workspace_id}/financial-events/{event_id}` is available only to
+an Active Contributor for their own `PENDING/NOT_EFFECTIVE`, non-archived submission. It
+requires the configured browser Origin and `If-Match: "vN"`. A successful edit increments
+the version and returns the complete Pending representation with its new ETag.
+
+The allowlisted mutable fields are `activity_classification`, `occurred_on`,
+`finance_category_id`, the complete `money` object, `payment_method`, `counterparty`,
+`reference`, and `notes`. Omitted fields remain unchanged. Explicit null clears only the
+three optional text fields. Event kind, cash direction, creator, lifecycle state, operation
+identity, review evidence, and canonical links are never client-mutable. Any selected
+category must remain Active, same-workspace, and compatible with the fixed event kind and
+effective activity classification; money retains the strict exact-decimal contract.
+
+The repository locks the own-submission row, compares its version, rechecks state and
+category policy, applies the complete validated change, preserves creator attribution, and
+records the current Contributor as updater in the same transaction as bounded
+`FINANCIAL_EVENT_PENDING_UPDATED` audit evidence. Missing `If-Match` returns `428
+PRECONDITION_REQUIRED`; malformed or stale values return `412 VERSION_MISMATCH`; Approved,
+Rejected, or otherwise ineligible records return `409 INVALID_STATE_TRANSITION`. Another
+Contributor's event and foreign or fabricated IDs use concealed `404 RESOURCE_NOT_FOUND`.
+Admin and Advisor calls are denied because this PATCH is Contributor-only.
+
+`GET /api/v1/workspaces/{workspace_id}/financial-events/{event_id}/status-history` follows
+the same role and workspace visibility predicate as event detail. It returns chronological,
+bounded action/status/time entries derived from append-only audit evidence. The public actor
+classification is only `SUBMITTER` or `WORKSPACE_ADMIN`; raw membership identifiers, request
+payloads, money, optional text, counts, and aggregates are not returned. Pending edits remain
+`NOT_EFFECTIVE` and therefore stay outside every official dataset.
+
+### 6.6 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,
 associated email, display name, role, membership status, bounded account status, language,
@@ -309,7 +340,7 @@ authorization also rechecks current membership state and role on every request. 
 remain concealed, stale writes have no lifecycle side effect, and successful/denied changes
 write bounded audit evidence without submitted profile or identifier payloads.
 
-### 6.5 Implemented ownership-transfer contract
+### 6.7 Implemented ownership-transfer contract
 
 Ownership transfer is a strict-JSON, exact-Origin browser workflow and never a membership
 PATCH. Initiation accepts `target_membership_id`, the former owner's destination role

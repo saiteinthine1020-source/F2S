@@ -8,6 +8,7 @@ from uuid import UUID
 from app.modules.household_finance.repositories import (
     FinanceRepository,
     FinancialEventRecord,
+    FinancialEventStatusRecord,
 )
 from app.modules.workspace_access import AuthorizationContext, Capability, WorkspaceRole
 
@@ -83,6 +84,12 @@ class FinancialEventQueryService:
         self._require_read_access(context)
         self._validate_role_filters(context, query)
         return await self._repository.list_visible_events(context, query=query)
+
+    async def get_status_history(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> tuple[FinancialEventStatusRecord, ...] | None:
+        self._require_read_access(context)
+        return await self._repository.list_event_status_history(context, event_id=event_id)
 
     @staticmethod
     def _require_read_access(context: AuthorizationContext) -> None:

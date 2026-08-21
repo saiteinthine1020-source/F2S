@@ -211,6 +211,7 @@ All paths are under `/api/v1/workspaces/{workspace_id}`.
 | --- | --- |
 | `/finance-categories` | GET/POST; item GET/PATCH with `If-Match`; archive command |
 | `/financial-events` | GET/POST; item GET; Contributor-only eligible Pending PATCH with `If-Match` |
+| `/financial-events/{id}/status-history` | Permitted chronological bounded lifecycle evidence; no payload copies or aggregates |
 | `/financial-events/{id}/approvals` | Admin idempotent POST, Pending only |
 | `/financial-events/{id}/rejections` | Admin idempotent POST, Pending only |
 | `/financial-events/{id}/reversals` | Admin idempotent POST with `If-Match` |
@@ -251,6 +252,29 @@ Foreign and role-invisible item IDs are concealed, and protected responses remai
 Because section 15 defers farming source links, a syntactically valid
 `farming_investment_id` is recognized but returns `INVALID_FILTER` in Phase 2 rather than
 being ignored or confused with FARM activity classification.
+
+Issue #84 implements Contributor Pending correction as strict `PATCH
+/financial-events/{id}`. The route accepts only a non-empty subset of category, occurred
+date, activity classification, complete exact money object, payment method, counterparty,
+reference, and notes. Omitted fields are unchanged; explicit null clears only optional text.
+Kind, direction, creator, lifecycle state, operation identity, review evidence, and source
+links remain immutable. The caller must be the original Active Contributor in the selected
+workspace, the event must remain `PENDING/NOT_EFFECTIVE` and non-archived, and the effective
+category/classification combination must remain Active and compatible.
+
+Every edit requires `If-Match: "vN"`. The repository locks the own-submission row, compares
+the current version, applies the validated update, preserves creator attribution, records
+the current updater, increments version, and appends `FINANCIAL_EVENT_PENDING_UPDATED` audit
+evidence atomically. Missing, malformed, and stale preconditions use the documented 428/412
+contract; ineligible state returns `INVALID_STATE_TRANSITION`; other submitters and foreign
+IDs are concealed. Admin and Advisor cannot use the Contributor edit route. Pending edits
+never change posting status and therefore never enter an official dataset.
+
+Issue #84 also implements `GET /financial-events/{id}/status-history` under the same
+role-aware detail visibility. It returns chronological allowlisted action, approval status,
+UTC time, and the bounded public actor classification `SUBMITTER` or `WORKSPACE_ADMIN` from
+append-only audit evidence. It returns no raw membership identifier, financial value,
+optional source text, payload copy, count, or aggregate.
 
 Foreign, fabricated, disabled-module, or inaccessible identifiers return the existing safe
 concealed contract. Protected finance JSON and downloads use `Cache-Control: no-store`.

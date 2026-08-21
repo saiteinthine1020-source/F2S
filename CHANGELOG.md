@@ -39,6 +39,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Role-aware financial-event detail and filtered list APIs with database-enforced visibility,
   inclusive/exclusive business dates, stable keyset ordering, scope-bound expiring cursors,
   exact money strings, count-free Contributor metadata, and concealed foreign identifiers.
+- Contributor-only own Pending financial-event edits with strict allowlisted fields,
+  `If-Match` concurrency, preserved creator/updater attribution, atomic bounded audit
+  evidence, concealed cross-workspace denials, and safe chronological status history.
 
 ### Security
 

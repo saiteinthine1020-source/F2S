@@ -21,9 +21,13 @@ from app.modules.household_finance.events import (
     FinancialEventKind,
     FinancialEventRecoveryRequired,
     FinancialEventReplayUnavailable,
+    FinancialEventStateConflict,
+    FinancialEventVersionMismatch,
     InvalidFinanceCategory,
     ManualFinancialEventCommand,
     PaymentMethod,
+    PendingFinancialEventUpdateCommand,
+    PendingFinancialEventUpdateService,
     normalize_optional_finance_text,
 )
 from app.modules.household_finance.queries import (
@@ -38,6 +42,8 @@ from app.modules.household_finance.repositories import (
     FinanceCategoryRecord,
     FinanceRepository,
     FinancialEventRecord,
+    FinancialEventStatusRecord,
+    PendingFinancialEventChanges,
 )
 
 __all__ = [
@@ -64,9 +70,15 @@ __all__ = [
     "FinancialEventQueryService",
     "FinancialEventRecoveryRequired",
     "FinancialEventReplayUnavailable",
+    "FinancialEventStateConflict",
+    "FinancialEventStatusRecord",
+    "FinancialEventVersionMismatch",
     "InvalidFinanceCategory",
     "InvalidFinancialEventFilter",
     "ManualFinancialEventCommand",
+    "PendingFinancialEventChanges",
+    "PendingFinancialEventUpdateCommand",
+    "PendingFinancialEventUpdateService",
     "PaymentMethod",
     "normalize_category_name",
     "normalize_optional_finance_text",

@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Annotated
 from uuid import UUID
@@ -22,6 +22,7 @@ from app.api.financial_event_cursors import (
     encode_financial_event_cursor,
 )
 from app.api.security import AuthenticatedAccountId
+from app.api.workspace_settings import PreconditionRequired
 from app.infrastructure.database.repositories.audit import SqlAlchemyAuditWriter
 from app.infrastructure.database.repositories.finance import SqlAlchemyFinanceRepository
 from app.infrastructure.database.repositories.idempotency import SqlAlchemyIdempotencyRepository
@@ -54,16 +55,22 @@ from app.modules.household_finance import (
     FinancialEventRecord,
     FinancialEventRecoveryRequired,
     FinancialEventReplayUnavailable,
+    FinancialEventStateConflict,
+    FinancialEventStatusRecord,
+    FinancialEventVersionMismatch,
     InvalidFinanceCategory,
     InvalidFinancialEventFilter,
     ManualFinancialEventCommand,
     PaymentMethod,
+    PendingFinancialEventUpdateCommand,
+    PendingFinancialEventUpdateService,
 )
 from app.modules.workspace_access import (
     AuthorizationContext,
     AuthorizationDenied,
     Capability,
     DenialCode,
+    WorkspaceVersionMismatch,
 )
 from app.shared_kernel import (
     INITIAL_CURRENCY_REGISTRY,
@@ -76,12 +83,14 @@ from app.shared_kernel import (
 router = APIRouter(prefix="/api/v1/workspaces/{workspace_id}/financial-events", tags=["finance"])
 BrowserBoundary = Annotated[BrowserRequest, Depends(require_browser_request)]
 IdempotencyHeader = Annotated[str, Header(alias="Idempotency-Key")]
+IfMatch = Annotated[str | None, Header(alias="If-Match")]
 StrictAmount = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=64)]
 StrictCurrency = Annotated[
     str,
     StringConstraints(strict=True, pattern=r"^[A-Z]{3}$"),
 ]
 _DEFAULT_SORT = "-occurred_on,-created_at,id"
+_ETAG = re.compile(r'^"v([1-9][0-9]*)"$')
 _ALLOWED_QUERY_PARAMETERS = frozenset(
     {
         "status",
@@ -144,6 +153,19 @@ class FinancialEventCreateRequest(BaseModel):
     notes: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
+class FinancialEventUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    activity_classification: ActivityClassification | None = None
+    occurred_on: date | None = None
+    finance_category_id: UUID | None = None
+    money: MoneyRequest | None = None
+    payment_method: PaymentMethod | None = None
+    counterparty: str | None = Field(default=None, min_length=1, max_length=256)
+    reference: str | None = Field(default=None, min_length=1, max_length=128)
+    notes: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
 class MoneyRepresentation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -192,6 +214,26 @@ class FinancialEventListEnvelope(BaseModel):
     meta: FinancialEventListMetadata
 
 
+class FinancialEventHistoryActor(StrEnum):
+    SUBMITTER = "SUBMITTER"
+    WORKSPACE_ADMIN = "WORKSPACE_ADMIN"
+
+
+class FinancialEventStatusRepresentation(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    action: str
+    approval_status: ApprovalStatus
+    actor: FinancialEventHistoryActor
+    occurred_at: datetime
+
+
+class FinancialEventStatusHistoryEnvelope(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    data: tuple[FinancialEventStatusRepresentation, ...]
+
+
 def _service(session: AsyncSession) -> FinancialEventCommandService:
     return FinancialEventCommandService(
         SqlAlchemyFinanceRepository(session),
@@ -201,6 +243,10 @@ def _service(session: AsyncSession) -> FinancialEventCommandService:
 
 def _query_service(session: AsyncSession) -> FinancialEventQueryService:
     return FinancialEventQueryService(SqlAlchemyFinanceRepository(session))
+
+
+def _update_service(session: AsyncSession) -> PendingFinancialEventUpdateService:
+    return PendingFinancialEventUpdateService(SqlAlchemyFinanceRepository(session))
 
 
 async def _resolve_context(
@@ -249,6 +295,34 @@ def _representation(record: FinancialEventRecord) -> FinancialEventRepresentatio
         posting_status=record.posting_status,
         version=record.version,
     )
+
+
+def _status_representation(
+    record: FinancialEventStatusRecord,
+) -> FinancialEventStatusRepresentation:
+    submitter_action = record.action_code in {
+        "FINANCIAL_EVENT_SUBMITTED",
+        "FINANCIAL_EVENT_PENDING_UPDATED",
+    }
+    return FinancialEventStatusRepresentation(
+        action=record.action_code,
+        approval_status=ApprovalStatus(record.approval_status),
+        actor=(
+            FinancialEventHistoryActor.SUBMITTER
+            if submitter_action
+            else FinancialEventHistoryActor.WORKSPACE_ADMIN
+        ),
+        occurred_at=record.occurred_at,
+    )
+
+
+def _expected_version(value: str | None) -> int:
+    if value is None:
+        raise PreconditionRequired
+    match = _ETAG.fullmatch(value)
+    if match is None:
+        raise WorkspaceVersionMismatch
+    return int(match.group(1))
 
 
 def _single_query_value(request: Request, name: str) -> str | None:
@@ -460,6 +534,93 @@ async def get_financial_event(
     return FinancialEventEnvelope(data=_representation(record))
 
 
+@router.get("/{event_id}/status-history", response_model=FinancialEventStatusHistoryEnvelope)
+async def get_financial_event_status_history(
+    workspace_id: UUID,
+    event_id: UUID,
+    request: Request,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+) -> FinancialEventStatusHistoryEnvelope | Response:
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        history = await _query_service(session).get_status_history(context, event_id=event_id)
+        if history is None:
+            await _audit_access_denial(session, context, AuditReason.RESOURCE_NOT_FOUND)
+            return _authorization_error(request, AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND))
+    except AuthorizationDenied as error:
+        return _authorization_error(request, error)
+    return FinancialEventStatusHistoryEnvelope(
+        data=tuple(_status_representation(record) for record in history)
+    )
+
+
+@router.patch("/{event_id}", response_model=FinancialEventEnvelope)
+async def update_pending_financial_event(
+    workspace_id: UUID,
+    event_id: UUID,
+    payload: FinancialEventUpdateRequest,
+    request: Request,
+    response: Response,
+    account_id: AuthenticatedAccountId,
+    session: Session,
+    browser: BrowserBoundary,
+    if_match: IfMatch = None,
+) -> FinancialEventEnvelope | Response:
+    del browser
+    expected_version = _expected_version(if_match)
+    try:
+        context = await _resolve_context(
+            session,
+            account_id=account_id,
+            workspace_id=workspace_id,
+            correlation_id=request.state.correlation_id,
+        )
+        record = await _update_service(session).update(
+            context,
+            event_id=event_id,
+            expected_version=expected_version,
+            command=PendingFinancialEventUpdateCommand(
+                changed_fields=frozenset(payload.model_fields_set),
+                activity_classification=payload.activity_classification,
+                occurred_on=payload.occurred_on,
+                finance_category_id=payload.finance_category_id,
+                amount=payload.money.amount if payload.money is not None else None,
+                currency_code=(payload.money.currency_code if payload.money is not None else None),
+                payment_method=payload.payment_method,
+                counterparty=payload.counterparty,
+                reference=payload.reference,
+                notes=payload.notes,
+            ),
+        )
+    except AuthorizationDenied as error:
+        if "context" in locals() and error.code is DenialCode.PERMISSION_DENIED:
+            await _audit_permission_denial(session, context)
+        return _authorization_error(request, error)
+    except FinancialEventVersionMismatch:
+        return _version_error(request)
+    except FinancialEventStateConflict:
+        return _conflict(
+            request,
+            "INVALID_STATE_TRANSITION",
+            "Only an eligible own Pending submission can be edited.",
+        )
+    except InvalidFinanceCategory:
+        return safe_error(
+            status_code=422,
+            code="VALIDATION_FAILED",
+            message="The selected category is incompatible with the financial event.",
+            correlation_id=correlation_for(request),
+        )
+    response.headers["ETag"] = f'"v{record.version}"'
+    return FinancialEventEnvelope(data=_representation(record))
+
+
 @router.post("", response_model=FinancialEventEnvelope, status_code=status.HTTP_201_CREATED)
 async def create_financial_event(
     workspace_id: UUID,
@@ -581,6 +742,15 @@ def _conflict(request: Request, code: str, message: str) -> Response:
         status_code=409,
         code=code,
         message=message,
+        correlation_id=correlation_for(request),
+    )
+
+
+def _version_error(request: Request) -> Response:
+    return safe_error(
+        status_code=412,
+        code="VERSION_MISMATCH",
+        message="The resource version is no longer current.",
         correlation_id=correlation_for(request),
     )
 

@@ -8,6 +8,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.database.models.audit import AuditEvent
 from app.infrastructure.database.models.finance import FinanceCategory, FinancialEvent
 from app.infrastructure.database.models.identity import UserAccount
 from app.infrastructure.database.models.workspace_access import (
@@ -38,7 +39,11 @@ from app.modules.household_finance import (
     FinancialEventPage,
     FinancialEventQuery,
     FinancialEventRecord,
+    FinancialEventStateConflict,
+    FinancialEventStatusRecord,
+    FinancialEventVersionMismatch,
     InvalidFinanceCategory,
+    PendingFinancialEventChanges,
 )
 from app.modules.workspace_access.authorization import (
     AuthorizationContext,
@@ -188,6 +193,42 @@ class SqlAlchemyFinanceRepository:
                 event_id=last.id,
             )
         return FinancialEventPage(records=records, next_position=next_position)
+
+    async def list_event_status_history(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> tuple[FinancialEventStatusRecord, ...] | None:
+        visible = await self.get_visible_event(context, event_id=event_id)
+        if visible is None:
+            return None
+        status_by_action = {
+            "FINANCIAL_EVENT_SUBMITTED": "PENDING",
+            "FINANCIAL_EVENT_PENDING_UPDATED": "PENDING",
+            "FINANCIAL_EVENT_CREATED_APPROVED": "APPROVED",
+            "FINANCIAL_EVENT_APPROVED": "APPROVED",
+            "FINANCIAL_EVENT_REJECTED": "REJECTED",
+        }
+        rows = (
+            await self._session.scalars(
+                select(AuditEvent)
+                .where(
+                    AuditEvent.workspace_id == context.workspace_id,
+                    AuditEvent.resource_type_code == "FINANCIAL_EVENT",
+                    AuditEvent.resource_id == event_id,
+                    AuditEvent.action_code.in_(tuple(status_by_action)),
+                    AuditEvent.result_code == "SUCCEEDED",
+                )
+                .order_by(AuditEvent.occurred_at.asc(), AuditEvent.id.asc())
+            )
+        ).all()
+        return tuple(
+            FinancialEventStatusRecord(
+                action_code=row.action_code,
+                approval_status=status_by_action[row.action_code],
+                actor_membership_id=row.actor_membership_id,
+                occurred_at=row.occurred_at,
+            )
+            for row in rows
+        )
 
     async def list_categories(
         self, context: AuthorizationContext, *, include_archived: bool
@@ -346,6 +387,129 @@ class SqlAlchemyFinanceRepository:
         )
         return self._event_record(event)
 
+    async def update_pending_event(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        expected_version: int,
+        changes: PendingFinancialEventChanges,
+    ) -> FinancialEventRecord:
+        await self._revalidate(context)
+        if context.role.value != "CONTRIBUTOR":
+            await self._audit_denial(
+                context,
+                AuditReason.PERMISSION_DENIED,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.EDIT_OWN_PENDING_SUBMISSION)
+        event = await self._session.scalar(
+            select(FinancialEvent)
+            .where(
+                FinancialEvent.workspace_id == context.workspace_id,
+                FinancialEvent.id == event_id,
+                FinancialEvent.created_by_membership_id == context.membership_id,
+            )
+            .with_for_update()
+        )
+        if event is None:
+            await self._audit_denial(
+                context,
+                AuditReason.RESOURCE_NOT_FOUND,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if event.version != expected_version:
+            await self._audit_denial(
+                context,
+                AuditReason.STALE_VERSION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventVersionMismatch
+        if (
+            event.approval_status != "PENDING"
+            or event.posting_status != "NOT_EFFECTIVE"
+            or event.archived_at is not None
+        ):
+            await self._audit_denial(
+                context,
+                AuditReason.INVALID_STATE_TRANSITION,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise FinancialEventStateConflict
+
+        activity = (
+            changes.activity_classification_code
+            if "activity_classification" in changes.changed_fields
+            else event.activity_classification_code
+        )
+        category_id = (
+            changes.finance_category_id
+            if "finance_category_id" in changes.changed_fields
+            else event.finance_category_id
+        )
+        if activity is None or category_id is None:
+            raise ValueError("INVALID_PENDING_EVENT_UPDATE")
+        category = await self._session.scalar(
+            select(FinanceCategory)
+            .where(
+                FinanceCategory.workspace_id == context.workspace_id,
+                FinanceCategory.id == category_id,
+                FinanceCategory.status == "ACTIVE",
+            )
+            .with_for_update()
+        )
+        if category is None:
+            await self._audit_denial(
+                context,
+                AuditReason.RESOURCE_NOT_FOUND,
+                resource_type=AuditResourceType.FINANCIAL_EVENT,
+            )
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        expected_applicability = "INCOME" if event.event_kind == "MANUAL_INCOME" else "EXPENSE"
+        if category.applicability_code not in (expected_applicability, "BOTH") or (
+            category.activity_classification_code is not None
+            and category.activity_classification_code != activity
+        ):
+            raise InvalidFinanceCategory
+
+        if "activity_classification" in changes.changed_fields:
+            event.activity_classification_code = activity
+        if "occurred_on" in changes.changed_fields:
+            if changes.occurred_on is None:
+                raise ValueError("INVALID_PENDING_EVENT_UPDATE")
+            event.occurred_on = changes.occurred_on
+        if "finance_category_id" in changes.changed_fields:
+            event.finance_category_id = category_id
+        if "money" in changes.changed_fields:
+            if changes.amount is None or changes.currency_code is None:
+                raise ValueError("INVALID_PENDING_EVENT_UPDATE")
+            event.amount = changes.amount
+            event.currency_code = changes.currency_code
+        if "payment_method" in changes.changed_fields:
+            if changes.payment_method_code is None:
+                raise ValueError("INVALID_PENDING_EVENT_UPDATE")
+            event.payment_method_code = changes.payment_method_code
+        if "counterparty" in changes.changed_fields:
+            event.counterparty_text = changes.counterparty_text
+        if "reference" in changes.changed_fields:
+            event.reference_text = changes.reference_text
+        if "notes" in changes.changed_fields:
+            event.notes = changes.notes
+
+        event.updated_by_membership_id = context.membership_id
+        event.updated_at = datetime.now(UTC)
+        event.version += 1
+        await self._session.flush()
+        await self._audit(
+            context,
+            AuditAction.FINANCIAL_EVENT_PENDING_UPDATED,
+            event.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT,
+        )
+        return self._event_record(event)
+
     async def validate_event_category(
         self,
         context: AuthorizationContext,
@@ -461,7 +625,13 @@ class SqlAlchemyFinanceRepository:
             )
         )
 
-    async def _audit_denial(self, context: AuthorizationContext, reason: AuditReason) -> None:
+    async def _audit_denial(
+        self,
+        context: AuthorizationContext,
+        reason: AuditReason,
+        *,
+        resource_type: AuditResourceType = AuditResourceType.FINANCE_CATEGORY,
+    ) -> None:
         await SqlAlchemyAuditWriter(self._session).append(
             AuditEventIntent(
                 scope=AuditScope.WORKSPACE,
@@ -471,7 +641,7 @@ class SqlAlchemyFinanceRepository:
                 module=AuditModule.HOUSEHOLD_FINANCE,
                 result=AuditResult.DENIED,
                 correlation_id=context.correlation_id,
-                resource_type=AuditResourceType.FINANCE_CATEGORY,
+                resource_type=resource_type,
                 reason=reason,
                 source=AuditSource.API,
                 context=AuditContext.FINANCE_ENTRY,

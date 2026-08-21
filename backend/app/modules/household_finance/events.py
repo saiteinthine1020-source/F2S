@@ -13,10 +13,17 @@ from app.modules.household_finance.contracts import (
     CanonicalFinanceEventReference,
     FinanceCommandMetadata,
 )
-from app.modules.household_finance.repositories import FinanceRepository, FinancialEventRecord
+from app.modules.household_finance.repositories import (
+    FinanceRepository,
+    FinancialEventRecord,
+    PendingFinancialEventChanges,
+)
 from app.modules.workspace_access import (
     AuthorizationContext,
+    AuthorizationDenied,
     Capability,
+    DenialCode,
+    WorkspaceRole,
     require_capability,
 )
 from app.shared_kernel import Money
@@ -57,6 +64,14 @@ class InvalidFinanceCategory(Exception):
     """The selected local category is incompatible with the command."""
 
 
+class FinancialEventVersionMismatch(Exception):
+    """The supplied optimistic version is no longer current."""
+
+
+class FinancialEventStateConflict(Exception):
+    """The event is not an eligible own Pending submission."""
+
+
 @dataclass(frozen=True, slots=True)
 class ManualFinancialEventCommand:
     event_kind: FinancialEventKind
@@ -69,6 +84,53 @@ class ManualFinancialEventCommand:
     counterparty: str | None = None
     reference: str | None = None
     notes: str | None = None
+
+
+_PENDING_MUTABLE_FIELDS = frozenset(
+    {
+        "activity_classification",
+        "occurred_on",
+        "finance_category_id",
+        "money",
+        "payment_method",
+        "counterparty",
+        "reference",
+        "notes",
+    }
+)
+_PENDING_REQUIRED_FIELDS = frozenset(
+    {
+        "activity_classification",
+        "occurred_on",
+        "finance_category_id",
+        "money",
+        "payment_method",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PendingFinancialEventUpdateCommand:
+    changed_fields: frozenset[str]
+    activity_classification: ActivityClassification | None = None
+    occurred_on: date | None = None
+    finance_category_id: UUID | None = None
+    amount: str | None = None
+    currency_code: str | None = None
+    payment_method: PaymentMethod | None = None
+    counterparty: str | None = None
+    reference: str | None = None
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.changed_fields or not self.changed_fields <= _PENDING_MUTABLE_FIELDS:
+            raise ValueError("INVALID_PENDING_EVENT_FIELDS")
+        for field_name in self.changed_fields & _PENDING_REQUIRED_FIELDS:
+            if field_name == "money":
+                if self.amount is None or self.currency_code is None:
+                    raise ValueError("INVALID_PENDING_EVENT_MONEY")
+            elif getattr(self, field_name) is None:
+                raise ValueError("INVALID_PENDING_EVENT_FIELD")
 
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
@@ -201,3 +263,77 @@ class FinancialEventCommandService:
             ),
         )
         return record, False
+
+
+class PendingFinancialEventUpdateService:
+    """Update only allowlisted fields of an eligible own Pending submission."""
+
+    def __init__(self, finance_repository: FinanceRepository) -> None:
+        self._finance_repository = finance_repository
+
+    async def update(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        expected_version: int,
+        command: PendingFinancialEventUpdateCommand,
+    ) -> FinancialEventRecord:
+        if context.role is not WorkspaceRole.CONTRIBUTOR:
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.EDIT_OWN_PENDING_SUBMISSION)
+
+        money = (
+            Money.parse_ordinary(command.amount, command.currency_code)
+            if "money" in command.changed_fields
+            and command.amount is not None
+            and command.currency_code is not None
+            else None
+        )
+        return await self._finance_repository.update_pending_event(
+            context,
+            event_id=event_id,
+            expected_version=expected_version,
+            changes=PendingFinancialEventChanges(
+                changed_fields=command.changed_fields,
+                activity_classification_code=(
+                    command.activity_classification.value
+                    if command.activity_classification is not None
+                    else None
+                ),
+                occurred_on=command.occurred_on,
+                finance_category_id=command.finance_category_id,
+                amount=money.to_storage_amount() if money is not None else None,
+                currency_code=money.currency.code if money is not None else None,
+                payment_method_code=(
+                    command.payment_method.value if command.payment_method is not None else None
+                ),
+                counterparty_text=(
+                    normalize_optional_finance_text(
+                        command.counterparty,
+                        maximum_length=256,
+                        code="INVALID_COUNTERPARTY",
+                    )
+                    if "counterparty" in command.changed_fields
+                    else None
+                ),
+                reference_text=(
+                    normalize_optional_finance_text(
+                        command.reference,
+                        maximum_length=128,
+                        code="INVALID_REFERENCE",
+                    )
+                    if "reference" in command.changed_fields
+                    else None
+                ),
+                notes=(
+                    normalize_optional_finance_text(
+                        command.notes,
+                        maximum_length=2000,
+                        code="INVALID_NOTES",
+                    )
+                    if "notes" in command.changed_fields
+                    else None
+                ),
+            ),
+        )

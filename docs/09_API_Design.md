@@ -375,6 +375,31 @@ ineligible transitions use `409 INVALID_STATE_TRANSITION`. Unexpected failure ro
 every event, audit, and idempotency write, after which operators retry the same command only
 after reconciling its canonical operation evidence.
 
+#### 6.7.1 Advisor finance reviews
+
+`GET` and `POST
+/api/v1/workspaces/{workspace_id}/financial-events/{event_id}/reviews` operate only on an
+Approved event visible in the selected workspace. Active Admin and Advisor memberships may
+list its chronological review sidecars; Contributor access is denied. An Advisor may create
+an attributed `COMMENT` or `FLAG`, while an Admin may create a response `COMMENT` but may
+not originate an Advisor flag. Creation requires exact configured Origin,
+`Idempotency-Key`, and a client-stable `operation_id`.
+
+Every review body is normalized, non-empty, and limited to 2,000 characters. A comment has
+no reason or lifecycle status. A flag requires one of `MISSING_EVIDENCE`,
+`POSSIBLE_DUPLICATE`, `POSSIBLE_INCORRECT_AMOUNT`, `POSSIBLE_INCORRECT_CATEGORY`,
+`POSSIBLE_INCORRECT_DATE`, or `OTHER`, and begins `OPEN`. Review text is Confidential and
+never enters audit, logs, idempotency metadata, safe errors, or official financial data.
+
+`POST
+/api/v1/workspaces/{workspace_id}/financial-event-reviews/{review_id}/resolutions` is
+Admin-only, requires `If-Match: "vN"`, and changes only an open flag to `RESOLVED` with an
+allowlisted resolution code. Comments, flags, and their bodies cannot be edited or deleted;
+resolution never mutates the financial event. Foreign, fabricated, Pending, Rejected, or
+otherwise invisible targets use concealed `404 RESOURCE_NOT_FOUND`. Stale versions return
+412 and an ineligible lifecycle returns 409. Creation or resolution and its bounded audit
+evidence share the caller-owned transaction.
+
 ### 6.8 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,

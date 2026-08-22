@@ -14,6 +14,7 @@ from app.api.bootstrap import router as bootstrap_router
 from app.api.browser_security import BrowserSecurityDenied
 from app.api.errors import correlation_for, safe_error
 from app.api.finance_categories import router as finance_categories_router
+from app.api.financial_event_reviews import router as financial_event_reviews_router
 from app.api.financial_events import router as financial_events_router
 from app.api.health import router as health_router
 from app.api.member_activation import router as member_activation_router
@@ -154,6 +155,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(workspace_settings_router)
     application.include_router(finance_categories_router)
     application.include_router(financial_events_router)
+    application.include_router(financial_event_reviews_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[effective_settings.frontend_origin],

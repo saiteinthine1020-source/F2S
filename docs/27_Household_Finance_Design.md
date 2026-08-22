@@ -234,8 +234,8 @@ All paths are under `/api/v1/workspaces/{workspace_id}`.
 | `/financial-events/{id}/reversals` | Admin idempotent POST with `If-Match` |
 | `/financial-events/{id}/corrections` | Admin atomic reversal/replacement POST with `If-Match` |
 | `/financial-events/{id}/archivals` | Admin idempotent POST with `If-Match` |
-| `/financial-events/{id}/reviews` | Permitted GET; Advisor/Admin designed POST |
-| `/financial-event-reviews/{id}/resolutions` | Admin flag-resolution POST with `If-Match` |
+| `/financial-events/{id}/reviews` | Admin/Advisor GET; Advisor comment/flag and Admin response-comment POST on Approved events |
+| `/financial-event-reviews/{id}/resolutions` | Admin-only open-flag resolution POST with `If-Match` |
 | `/financial-events/{id}/receipts` | Reservation/link/status/list/removal; download through protected file route |
 | `/financial-summaries/monthly` | Admin/Advisor GET; Contributor aggregate access denied |
 
@@ -243,6 +243,15 @@ Create, approval, rejection, reversal, correction, archive, receipt reservation/
 and review creation require `Idempotency-Key`. Current authorization is rechecked before a
 stored safe outcome is returned. Lifecycle commands also require current ETag where specified;
 idempotency never replaces concurrency control.
+
+Issue #87 implements reviews as workspace-owned, append-only sidecars rather than financial
+event mutations. Review creation is idempotent and records creator membership and time;
+Advisor comments and flags are permitted only on Approved events, while Admin creation is
+limited to response comments. A flag begins Open with an allowlisted reason and only Admin
+may resolve it with an allowlisted resolution, current ETag, resolver, time, and incremented
+version. The schema prohibits hard deletion and any update other than the one-way open-flag
+resolution transition. Bounded audit actions contain stable review identifiers and codes
+only; the Confidential body is excluded from audit, logs, metadata, AI, and official data.
 
 Issue #82 implements manual creation as strict `POST /financial-events`. The request carries a
 client-stable canonical `operation_id`, event kind, classification, occurrence date, Active

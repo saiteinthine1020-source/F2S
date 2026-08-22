@@ -296,3 +296,81 @@ class FinancialEvent(Base):
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     archive_reason_code: Mapped[str | None] = mapped_column(String(64))
     version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default="1")
+
+
+class FinancialEventReview(Base):
+    """Attributed comment or flag sidecar that never mutates a financial fact."""
+
+    __tablename__ = "financial_event_reviews"
+    __table_args__ = (
+        CheckConstraint("review_kind IN ('COMMENT', 'FLAG')", name="valid_kind"),
+        CheckConstraint("char_length(btrim(body_text)) BETWEEN 1 AND 2000", name="valid_body"),
+        CheckConstraint(
+            "reason_code IS NULL OR reason_code IN "
+            "('MISSING_EVIDENCE', 'POSSIBLE_DUPLICATE', 'POSSIBLE_INCORRECT_AMOUNT', "
+            "'POSSIBLE_INCORRECT_CATEGORY', 'POSSIBLE_INCORRECT_DATE', 'OTHER')",
+            name="valid_reason",
+        ),
+        CheckConstraint(
+            "resolution_code IS NULL OR resolution_code IN "
+            "('REVIEWED_NO_CHANGE', 'CORRECTION_REQUIRED', 'DUPLICATE_CONFIRMED', 'OTHER')",
+            name="valid_resolution",
+        ),
+        CheckConstraint(
+            "(review_kind = 'COMMENT' AND reason_code IS NULL AND flag_status IS NULL "
+            "AND resolved_by_membership_id IS NULL AND resolved_at IS NULL "
+            "AND resolution_code IS NULL) OR "
+            "(review_kind = 'FLAG' AND reason_code IS NOT NULL AND "
+            "((flag_status = 'OPEN' AND resolved_by_membership_id IS NULL "
+            "AND resolved_at IS NULL AND resolution_code IS NULL) OR "
+            "(flag_status = 'RESOLVED' AND resolved_by_membership_id IS NOT NULL "
+            "AND resolved_at IS NOT NULL AND resolution_code IS NOT NULL)))",
+            name="valid_lifecycle",
+        ),
+        CheckConstraint("version > 0", name="positive_version"),
+        _actor_foreign_key("created_by_membership_id", "fk_financial_review_creator"),
+        _actor_foreign_key("resolved_by_membership_id", "fk_financial_review_resolver"),
+        ForeignKeyConstraint(
+            ["workspace_id", "financial_event_id"],
+            ["financial_events.workspace_id", "financial_events.id"],
+            name="fk_financial_review_event",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("workspace_id", "id", name="uq_financial_review_workspace_id"),
+        UniqueConstraint("workspace_id", "operation_id", name="uq_financial_review_operation"),
+        Index(
+            "ix_financial_review_workspace_event_created",
+            "workspace_id",
+            "financial_event_id",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_financial_review_open_flags",
+            "workspace_id",
+            "financial_event_id",
+            "created_at",
+            postgresql_where=text("review_kind = 'FLAG' AND flag_status = 'OPEN'"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    financial_event_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
+    review_kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    body_text: Mapped[str] = mapped_column(Text, nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(64))
+    flag_status: Mapped[str | None] = mapped_column(String(16))
+    operation_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
+    created_by_membership_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.current_timestamp()
+    )
+    resolved_by_membership_id: Mapped[UUID | None] = mapped_column(PostgreSQLUUID(as_uuid=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolution_code: Mapped[str | None] = mapped_column(String(64))
+    version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default="1")

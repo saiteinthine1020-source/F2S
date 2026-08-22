@@ -87,6 +87,22 @@ class FinancialEventLifecycleRecord:
     replacement: FinancialEventRecord | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class FinancialEventReviewRecord:
+    id: UUID
+    financial_event_id: UUID
+    review_kind: str
+    body_text: str
+    reason_code: str | None
+    flag_status: str | None
+    created_by_membership_id: UUID
+    created_at: datetime
+    resolved_by_membership_id: UUID | None
+    resolved_at: datetime | None
+    resolution_code: str | None
+    version: int
+
+
 class FinanceRepository(Protocol):
     """Narrow storage contract; policy-specific projections are added by owning issues."""
 
@@ -204,6 +220,34 @@ class FinanceRepository(Protocol):
     async def get_lifecycle_result(
         self, context: AuthorizationContext, *, event_id: UUID
     ) -> FinancialEventLifecycleRecord | None: ...
+
+    async def list_event_reviews(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> tuple[FinancialEventReviewRecord, ...] | None: ...
+
+    async def get_event_review(
+        self, context: AuthorizationContext, *, review_id: UUID
+    ) -> FinancialEventReviewRecord | None: ...
+
+    async def create_event_review(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        operation_id: UUID,
+        review_kind: str,
+        body_text: str,
+        reason_code: str | None,
+    ) -> FinancialEventReviewRecord: ...
+
+    async def resolve_event_review(
+        self,
+        context: AuthorizationContext,
+        *,
+        review_id: UUID,
+        expected_version: int,
+        resolution_code: str,
+    ) -> FinancialEventReviewRecord: ...
 
     async def validate_event_category(
         self,

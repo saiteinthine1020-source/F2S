@@ -2,6 +2,7 @@
 
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import cast
 from uuid import UUID, uuid5
 
 from sqlalchemy import and_, or_, select
@@ -9,7 +10,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models.audit import AuditEvent
-from app.infrastructure.database.models.finance import FinanceCategory, FinancialEvent
+from app.infrastructure.database.models.finance import (
+    FinanceCategory,
+    FinancialEvent,
+    FinancialEventReview,
+)
 from app.infrastructure.database.models.identity import UserAccount
 from app.infrastructure.database.models.workspace_access import (
     Workspace,
@@ -42,9 +47,12 @@ from app.modules.household_finance import (
     FinancialEventQuery,
     FinancialEventRecord,
     FinancialEventReplacement,
+    FinancialEventReviewRecord,
     FinancialEventStateConflict,
     FinancialEventStatusRecord,
     FinancialEventVersionMismatch,
+    FinancialReviewStateConflict,
+    FinancialReviewVersionMismatch,
     InvalidFinanceCategory,
     PendingFinancialEventChanges,
 )
@@ -828,6 +836,168 @@ class SqlAlchemyFinanceRepository:
             replacement=(self._event_record(replacement) if replacement is not None else None),
         )
 
+    async def list_event_reviews(
+        self, context: AuthorizationContext, *, event_id: UUID
+    ) -> tuple[FinancialEventReviewRecord, ...] | None:
+        await self._require_review_reader(context)
+        if await self._approved_review_event(context, event_id) is None:
+            await self._review_denial(context, AuditReason.RESOURCE_NOT_FOUND)
+            return None
+        rows = (
+            await self._session.scalars(
+                select(FinancialEventReview)
+                .where(
+                    FinancialEventReview.workspace_id == context.workspace_id,
+                    FinancialEventReview.financial_event_id == event_id,
+                )
+                .order_by(FinancialEventReview.created_at, FinancialEventReview.id)
+            )
+        ).all()
+        return tuple(self._review_record(row) for row in rows)
+
+    async def get_event_review(
+        self, context: AuthorizationContext, *, review_id: UUID
+    ) -> FinancialEventReviewRecord | None:
+        await self._require_review_reader(context)
+        row = await self._session.scalar(
+            select(FinancialEventReview)
+            .join(
+                FinancialEvent,
+                and_(
+                    FinancialEvent.workspace_id == FinancialEventReview.workspace_id,
+                    FinancialEvent.id == FinancialEventReview.financial_event_id,
+                ),
+            )
+            .where(
+                FinancialEventReview.workspace_id == context.workspace_id,
+                FinancialEventReview.id == review_id,
+                FinancialEvent.approval_status == "APPROVED",
+            )
+        )
+        return None if row is None else self._review_record(row)
+
+    async def create_event_review(
+        self,
+        context: AuthorizationContext,
+        *,
+        event_id: UUID,
+        operation_id: UUID,
+        review_kind: str,
+        body_text: str,
+        reason_code: str | None,
+    ) -> FinancialEventReviewRecord:
+        await self._require_review_reader(context)
+        if context.role.value == "ADMIN" and review_kind != "COMMENT":
+            await self._review_denial(context, AuditReason.PERMISSION_DENIED)
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        event = await self._approved_review_event(context, event_id, lock=True)
+        if event is None:
+            await self._review_denial(context, AuditReason.RESOURCE_NOT_FOUND)
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        review = FinancialEventReview(
+            workspace_id=context.workspace_id,
+            financial_event_id=event.id,
+            review_kind=review_kind,
+            body_text=body_text,
+            reason_code=reason_code,
+            flag_status="OPEN" if review_kind == "FLAG" else None,
+            operation_id=operation_id,
+            created_by_membership_id=context.membership_id,
+            created_at=datetime.now(UTC),
+            version=1,
+        )
+        self._session.add(review)
+        await self._session.flush()
+        await self._audit(
+            context,
+            (
+                AuditAction.FINANCIAL_REVIEW_FLAGGED
+                if review_kind == "FLAG"
+                else AuditAction.FINANCIAL_REVIEW_COMMENTED
+            ),
+            review.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT_REVIEW,
+            audit_context=AuditContext.FINANCE_REVIEW,
+        )
+        return self._review_record(review)
+
+    async def resolve_event_review(
+        self,
+        context: AuthorizationContext,
+        *,
+        review_id: UUID,
+        expected_version: int,
+        resolution_code: str,
+    ) -> FinancialEventReviewRecord:
+        await self._revalidate(context)
+        if context.role.value != "ADMIN":
+            await self._review_denial(context, AuditReason.PERMISSION_DENIED)
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.COMMENT_OR_FLAG)
+        review = await self._session.scalar(
+            select(FinancialEventReview)
+            .join(
+                FinancialEvent,
+                and_(
+                    FinancialEvent.workspace_id == FinancialEventReview.workspace_id,
+                    FinancialEvent.id == FinancialEventReview.financial_event_id,
+                ),
+            )
+            .where(
+                FinancialEventReview.workspace_id == context.workspace_id,
+                FinancialEventReview.id == review_id,
+                FinancialEvent.approval_status == "APPROVED",
+            )
+            .with_for_update()
+        )
+        if review is None:
+            await self._review_denial(context, AuditReason.RESOURCE_NOT_FOUND)
+            raise AuthorizationDenied(DenialCode.RESOURCE_NOT_FOUND)
+        if review.version != expected_version:
+            await self._review_denial(context, AuditReason.STALE_VERSION)
+            raise FinancialReviewVersionMismatch
+        if review.review_kind != "FLAG" or review.flag_status != "OPEN":
+            await self._review_denial(context, AuditReason.INVALID_STATE_TRANSITION)
+            raise FinancialReviewStateConflict
+        review.flag_status = "RESOLVED"
+        review.resolved_by_membership_id = context.membership_id
+        review.resolved_at = datetime.now(UTC)
+        review.resolution_code = resolution_code
+        review.version += 1
+        await self._session.flush()
+        await self._audit(
+            context,
+            AuditAction.FINANCIAL_REVIEW_FLAG_RESOLVED,
+            review.id,
+            resource_type=AuditResourceType.FINANCIAL_EVENT_REVIEW,
+            audit_context=AuditContext.FINANCE_REVIEW,
+        )
+        return self._review_record(review)
+
+    async def _require_review_reader(self, context: AuthorizationContext) -> None:
+        await self._revalidate(context)
+        if context.role.value not in ("ADMIN", "ADVISOR"):
+            await self._review_denial(context, AuditReason.PERMISSION_DENIED)
+            raise AuthorizationDenied(DenialCode.PERMISSION_DENIED)
+        require_capability(context, Capability.COMMENT_OR_FLAG)
+
+    async def _approved_review_event(
+        self, context: AuthorizationContext, event_id: UUID, *, lock: bool = False
+    ) -> FinancialEvent | None:
+        statement = select(FinancialEvent).where(
+            FinancialEvent.workspace_id == context.workspace_id,
+            FinancialEvent.id == event_id,
+            FinancialEvent.approval_status == "APPROVED",
+        )
+        if lock:
+            statement = statement.with_for_update()
+        return cast(FinancialEvent | None, await self._session.scalar(statement))
+
+    async def _review_denial(self, context: AuthorizationContext, reason: AuditReason) -> None:
+        await self._audit_denial(
+            context, reason, resource_type=AuditResourceType.FINANCIAL_EVENT_REVIEW
+        )
+
     async def validate_event_category(
         self,
         context: AuthorizationContext,
@@ -919,6 +1089,23 @@ class SqlAlchemyFinanceRepository:
             archived_at=event.archived_at,
         )
 
+    @staticmethod
+    def _review_record(review: FinancialEventReview) -> FinancialEventReviewRecord:
+        return FinancialEventReviewRecord(
+            id=review.id,
+            financial_event_id=review.financial_event_id,
+            review_kind=review.review_kind,
+            body_text=review.body_text,
+            reason_code=review.reason_code,
+            flag_status=review.flag_status,
+            created_by_membership_id=review.created_by_membership_id,
+            created_at=review.created_at,
+            resolved_by_membership_id=review.resolved_by_membership_id,
+            resolved_at=review.resolved_at,
+            resolution_code=review.resolution_code,
+            version=review.version,
+        )
+
     async def _audit(
         self,
         context: AuthorizationContext,
@@ -926,6 +1113,7 @@ class SqlAlchemyFinanceRepository:
         resource_id: UUID,
         *,
         resource_type: AuditResourceType = AuditResourceType.FINANCE_CATEGORY,
+        audit_context: AuditContext = AuditContext.FINANCE_ENTRY,
     ) -> None:
         await SqlAlchemyAuditWriter(self._session).append(
             AuditEventIntent(
@@ -939,7 +1127,7 @@ class SqlAlchemyFinanceRepository:
                 resource_type=resource_type,
                 resource_id=resource_id,
                 source=AuditSource.API,
-                context=AuditContext.FINANCE_ENTRY,
+                context=audit_context,
             )
         )
 

@@ -1,7 +1,11 @@
 """SQLAlchemy mappings registered with the shared metadata."""
 
 from app.infrastructure.database.models.audit import AuditEvent
-from app.infrastructure.database.models.finance import FinanceCategory, FinancialEvent
+from app.infrastructure.database.models.finance import (
+    FinanceCategory,
+    FinancialEvent,
+    FinancialEventReview,
+)
 from app.infrastructure.database.models.identity import BootstrapState, UserAccount
 from app.infrastructure.database.models.identity_security import (
     ActivationChallenge,
@@ -23,6 +27,7 @@ __all__ = [
     "BootstrapState",
     "FinanceCategory",
     "FinancialEvent",
+    "FinancialEventReview",
     "IdempotencyRecord",
     "OwnershipTransfer",
     "RecoveryChallenge",

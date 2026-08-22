@@ -17,6 +17,7 @@ EXPECTED_TABLES = {
     "bootstrap_state",
     "finance_categories",
     "financial_events",
+    "financial_event_reviews",
     "idempotency_records",
     "ownership_transfers",
     "recovery_challenges",
@@ -34,12 +35,14 @@ FOUNDATION_TABLES = EXPECTED_TABLES - {
     "recovery_challenges",
     "finance_categories",
     "financial_events",
+    "financial_event_reviews",
     "idempotency_records",
 }
 
 PHASE_ONE_TABLES = EXPECTED_TABLES - {
     "finance_categories",
     "financial_events",
+    "financial_event_reviews",
     "idempotency_records",
 }
 

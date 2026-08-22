@@ -48,6 +48,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Admin-only financial-event reversal, correction, replacement, and archive commands with
   exact conservation, explicit confirmation and ETags, canonical links, one-winner locking,
   safe replay, concealed isolation, and transaction-bound audit evidence.
+- Workspace-owned Advisor finance comments and flags on Approved events, with bounded
+  confidential text, append-only attribution, idempotent creation, Admin-only flag
+  resolution, optimistic concurrency, concealed isolation, and safe audit evidence.
 
 ### Security
 

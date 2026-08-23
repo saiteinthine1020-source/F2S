@@ -346,6 +346,25 @@ not automatically expire in Phase 2; they follow the linked financial record unt
 approved legal/business retention rule permits deletion. Removal deactivates the link and
 preserves evidence. No receipt is stored offline.
 
+Issue #88 implements one 15-minute reservation followed by a bounded raw-content upload.
+Reservations accept only PDF, JPEG, or PNG metadata and 1 through 10 MiB, bind a lowercase
+SHA-256 checksum, create a server-random opaque storage key, and atomically add an append-only
+`RECEIPT` link. Filenames reject traversal, controls, bidirectional formatting, mismatched
+extensions, and executable types; the sanitized value is metadata and download disposition
+only. It is never a storage path.
+
+Upload requires exact Origin, declared content type, Content-Length, exact size/checksum,
+strict content signature/structure, and the current eligible actor/parent. Overdue unused
+reservations transition to `EXPIRED`; quarantines left unscanned for 24 hours fail closed and
+become cleanup-eligible. Bytes remain
+unavailable until the file has passed `PENDING` to `QUARANTINED` to `AVAILABLE`. Signature,
+polyglot, malware, scanner, checksum, size, storage, and expiry failures remain unavailable
+with bounded failure codes. Production uses a rejecting scanner until an approved malware
+scanner adapter is configured. Direct authorised downloads recheck workspace, actor, event,
+purpose, active link, and `AVAILABLE` state, then recheck stored checksum and return
+attachment-only, `nosniff`, no-store content. Failed/expired bytes become cleanup-eligible
+after 24 hours; available bytes require a later approved retention decision.
+
 ## 10. Audit and privacy contract
 
 The Audit module adds `HOUSEHOLD_FINANCE`, resource types `FINANCE_CATEGORY`,

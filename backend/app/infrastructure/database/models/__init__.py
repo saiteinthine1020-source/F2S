@@ -4,7 +4,9 @@ from app.infrastructure.database.models.audit import AuditEvent
 from app.infrastructure.database.models.finance import (
     FinanceCategory,
     FinancialEvent,
+    FinancialEventFile,
     FinancialEventReview,
+    ProtectedFile,
 )
 from app.infrastructure.database.models.identity import BootstrapState, UserAccount
 from app.infrastructure.database.models.identity_security import (
@@ -27,7 +29,9 @@ __all__ = [
     "BootstrapState",
     "FinanceCategory",
     "FinancialEvent",
+    "FinancialEventFile",
     "FinancialEventReview",
+    "ProtectedFile",
     "IdempotencyRecord",
     "OwnershipTransfer",
     "RecoveryChallenge",

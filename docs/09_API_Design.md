@@ -400,6 +400,31 @@ otherwise invisible targets use concealed `404 RESOURCE_NOT_FOUND`. Stale versio
 412 and an ineligible lifecycle returns 409. Creation or resolution and its bounded audit
 evidence share the caller-owned transaction.
 
+#### 6.7.2 Protected expense receipts
+
+`POST /api/v1/workspaces/{workspace_id}/financial-events/{event_id}/receipts` reserves one
+expense receipt and active append-only link. It requires strict JSON, exact Origin,
+`Idempotency-Key`, `operation_id`, a safe filename, declared PDF/JPEG/PNG type, size from 1
+through 10 MiB, and lowercase SHA-256. Admin may attach to an eligible workspace expense;
+Contributor may attach only to their own Pending expense. Advisor cannot attach. Success
+returns `201`, a 15-minute `PENDING` resource, ETag, status `Location`, and no storage key,
+path, checksum, totals, or public URL.
+
+`PUT /api/v1/workspaces/{workspace_id}/protected-files/{file_id}/content` accepts the exact
+reserved media type and byte length at the exact Origin. It validates size, checksum,
+signature/structure, polyglot policy, and malware scan before `AVAILABLE`; failed or
+quarantined content is never downloadable. `GET /protected-files/{file_id}` reports bounded
+status. `GET /protected-files/{file_id}/download` is an authorised direct download that
+rechecks the active event link, workspace, purpose, role, state, and stored checksum and
+returns `application/octet-stream`, attachment disposition, `nosniff`, and no-store.
+
+`GET /financial-events/{event_id}/receipts` lists only active permitted links. `POST
+/financial-events/{event_id}/receipts/{file_id}/removals` is idempotent, accepts an
+allowlisted reason, deactivates the link, and preserves both file and association history.
+Removed, Pending, Quarantined, Failed, Expired, Deleted, foreign, guessed, or corrupt file
+references use the concealed unavailable/not-found contract and never reveal restricted
+financial values.
+
 ### 6.8 Implemented membership lifecycle contract
 
 `GET /api/v1/workspaces/{workspace_id}/members` is Admin-only and returns membership ID,

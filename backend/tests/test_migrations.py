@@ -18,8 +18,10 @@ EXPECTED_TABLES = {
     "finance_categories",
     "financial_events",
     "financial_event_reviews",
+    "financial_event_files",
     "idempotency_records",
     "ownership_transfers",
+    "protected_files",
     "recovery_challenges",
     "user_accounts",
     "workspaces",
@@ -36,14 +38,18 @@ FOUNDATION_TABLES = EXPECTED_TABLES - {
     "finance_categories",
     "financial_events",
     "financial_event_reviews",
+    "financial_event_files",
     "idempotency_records",
+    "protected_files",
 }
 
 PHASE_ONE_TABLES = EXPECTED_TABLES - {
     "finance_categories",
     "financial_events",
     "financial_event_reviews",
+    "financial_event_files",
     "idempotency_records",
+    "protected_files",
 }
 
 

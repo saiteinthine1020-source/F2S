@@ -71,6 +71,10 @@ class SqlAlchemyFinanceRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
+    async def revalidate_context(self, context: AuthorizationContext) -> None:
+        """Recheck the shared finance module boundary for collaborating repositories."""
+        await self._revalidate(context)
+
     async def get_category(
         self, context: AuthorizationContext, *, category_id: UUID
     ) -> FinanceCategoryRecord | None:

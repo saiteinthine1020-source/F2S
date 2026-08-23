@@ -14,6 +14,7 @@ from app.api.bootstrap import router as bootstrap_router
 from app.api.browser_security import BrowserSecurityDenied
 from app.api.errors import correlation_for, safe_error
 from app.api.finance_categories import router as finance_categories_router
+from app.api.finance_receipts import router as finance_receipts_router
 from app.api.financial_event_reviews import router as financial_event_reviews_router
 from app.api.financial_events import router as financial_events_router
 from app.api.health import router as health_router
@@ -35,6 +36,12 @@ from app.modules.account_security import (
 )
 from app.modules.audit.correlation import CorrelationIdError, resolve_correlation_id
 from app.modules.bootstrap.service import BootstrapUnavailable
+from app.modules.household_finance import (
+    DevelopmentMalwareScanner,
+    FilesystemReceiptStorage,
+    MemoryReceiptStorage,
+    RejectingMalwareScanner,
+)
 from app.modules.identity_security import (
     Argon2idPasswordService,
     DevelopmentDualSubjectAbuseControl,
@@ -145,6 +152,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if effective_settings.environment is RuntimeEnvironment.PRODUCTION
         else DevelopmentOwnershipOutbox()
     )
+    application.state.receipt_storage = (
+        MemoryReceiptStorage()
+        if effective_settings.environment is RuntimeEnvironment.TEST
+        else FilesystemReceiptStorage(effective_settings.protected_file_root)
+    )
+    application.state.receipt_scanner = (
+        RejectingMalwareScanner()
+        if effective_settings.environment is RuntimeEnvironment.PRODUCTION
+        else DevelopmentMalwareScanner()
+    )
     application.include_router(health_router)
     application.include_router(bootstrap_router)
     application.include_router(member_activation_router)
@@ -154,13 +171,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(account_security_router)
     application.include_router(workspace_settings_router)
     application.include_router(finance_categories_router)
+    application.include_router(finance_receipts_router)
     application.include_router(financial_events_router)
     application.include_router(financial_event_reviews_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[effective_settings.frontend_origin],
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=[
             "Authorization",
             "Content-Type",

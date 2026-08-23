@@ -374,3 +374,157 @@ class FinancialEventReview(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolution_code: Mapped[str | None] = mapped_column(String(64))
     version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default="1")
+
+
+class ProtectedFile(Base):
+    """Restricted file metadata; bytes live behind the private storage boundary."""
+
+    __tablename__ = "protected_files"
+    __table_args__ = (
+        CheckConstraint("purpose_code = 'FINANCIAL_RECEIPT'", name="valid_purpose"),
+        CheckConstraint(
+            "state IN ('PENDING', 'QUARANTINED', 'AVAILABLE', 'FAILED', 'EXPIRED', 'DELETED')",
+            name="valid_state",
+        ),
+        CheckConstraint(
+            "declared_media_type IN ('application/pdf', 'image/jpeg', 'image/png')",
+            name="valid_declared_media_type",
+        ),
+        CheckConstraint(
+            "detected_media_type IS NULL OR detected_media_type IN "
+            "('application/pdf', 'image/jpeg', 'image/png')",
+            name="valid_detected_media_type",
+        ),
+        CheckConstraint("expected_size BETWEEN 1 AND 10485760", name="valid_expected_size"),
+        CheckConstraint(
+            "actual_size IS NULL OR actual_size BETWEEN 1 AND 10485760",
+            name="valid_actual_size",
+        ),
+        CheckConstraint("expected_sha256 ~ '^[0-9a-f]{64}$'", name="valid_expected_sha256"),
+        CheckConstraint(
+            "actual_sha256 IS NULL OR actual_sha256 ~ '^[0-9a-f]{64}$'",
+            name="valid_actual_sha256",
+        ),
+        CheckConstraint("storage_key ~ '^[0-9a-f]{64}$'", name="valid_storage_key"),
+        CheckConstraint("char_length(sanitized_filename) BETWEEN 1 AND 128", name="valid_filename"),
+        CheckConstraint(
+            "(state = 'PENDING' AND uploaded_at IS NULL AND scanned_at IS NULL "
+            "AND available_at IS NULL AND deleted_at IS NULL AND failure_code IS NULL) OR "
+            "(state = 'QUARANTINED' AND uploaded_at IS NOT NULL AND scanned_at IS NULL "
+            "AND available_at IS NULL AND deleted_at IS NULL AND failure_code IS NULL) OR "
+            "(state = 'AVAILABLE' AND uploaded_at IS NOT NULL AND scanned_at IS NOT NULL "
+            "AND available_at IS NOT NULL AND deleted_at IS NULL AND failure_code IS NULL) OR "
+            "(state IN ('FAILED', 'EXPIRED') AND available_at IS NULL "
+            "AND deleted_at IS NULL AND failure_code IS NOT NULL) OR "
+            "(state = 'DELETED' AND deleted_at IS NOT NULL)",
+            name="valid_lifecycle",
+        ),
+        CheckConstraint("version > 0", name="positive_version"),
+        _actor_foreign_key("created_by_membership_id", "fk_protected_file_creator"),
+        UniqueConstraint("workspace_id", "id", name="uq_protected_file_workspace_id"),
+        UniqueConstraint("workspace_id", "operation_id", name="uq_protected_file_operation"),
+        UniqueConstraint("storage_key", name="uq_protected_file_storage_key"),
+        Index("ix_protected_file_workspace_state_created", "workspace_id", "state", "created_at"),
+        Index(
+            "ix_protected_file_cleanup",
+            "state",
+            "cleanup_after",
+            postgresql_where=text("cleanup_after IS NOT NULL AND deleted_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    purpose_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    declared_media_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    detected_media_type: Mapped[str | None] = mapped_column(String(64))
+    sanitized_filename: Mapped[str] = mapped_column(String(128), nullable=False)
+    expected_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    actual_size: Mapped[int | None] = mapped_column(BigInteger)
+    expected_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    actual_sha256: Mapped[str | None] = mapped_column(String(64))
+    storage_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String(64))
+    operation_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
+    created_by_membership_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.current_timestamp()
+    )
+    reservation_expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cleanup_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default="1")
+
+
+class FinancialEventFile(Base):
+    """Append-only receipt association with explicit removal evidence."""
+
+    __tablename__ = "financial_event_files"
+    __table_args__ = (
+        CheckConstraint("attachment_role = 'RECEIPT'", name="valid_role"),
+        CheckConstraint(
+            "(removed_at IS NULL AND removed_by_membership_id IS NULL AND removal_reason IS NULL "
+            "AND removal_operation_id IS NULL) "
+            "OR (removed_at IS NOT NULL AND removed_by_membership_id IS NOT NULL "
+            "AND removal_reason IS NOT NULL AND removal_operation_id IS NOT NULL)",
+            name="valid_removal",
+        ),
+        _actor_foreign_key("attached_by_membership_id", "fk_financial_event_file_attacher"),
+        _actor_foreign_key("removed_by_membership_id", "fk_financial_event_file_remover"),
+        ForeignKeyConstraint(
+            ["workspace_id", "financial_event_id"],
+            ["financial_events.workspace_id", "financial_events.id"],
+            name="fk_financial_event_file_event",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["workspace_id", "protected_file_id"],
+            ["protected_files.workspace_id", "protected_files.id"],
+            name="fk_financial_event_file_file",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("workspace_id", "id", name="uq_financial_event_file_workspace_id"),
+        Index(
+            "uq_financial_event_file_active",
+            "workspace_id",
+            "financial_event_id",
+            "protected_file_id",
+            unique=True,
+            postgresql_where=text("removed_at IS NULL"),
+        ),
+        Index(
+            "ix_financial_event_file_workspace_event_attached",
+            "workspace_id",
+            "financial_event_id",
+            "attached_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    financial_event_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
+    protected_file_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
+    attachment_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    attached_by_membership_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True))
+    attached_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.current_timestamp()
+    )
+    removed_by_membership_id: Mapped[UUID | None] = mapped_column(PostgreSQLUUID(as_uuid=True))
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    removal_reason: Mapped[str | None] = mapped_column(String(64))
+    removal_operation_id: Mapped[UUID | None] = mapped_column(PostgreSQLUUID(as_uuid=True))

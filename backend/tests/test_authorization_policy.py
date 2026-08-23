@@ -27,6 +27,7 @@ from app.modules.workspace_access.authorization import (
                     Capability.ACCESS_WORKSPACE,
                     Capability.CREATE_FINANCIAL_SUBMISSION,
                     Capability.EDIT_OWN_PENDING_SUBMISSION,
+                    Capability.ATTACH_FINANCE_RECEIPTS,
                 }
             ),
         ),
@@ -38,6 +39,7 @@ from app.modules.workspace_access.authorization import (
                     Capability.VIEW_OFFICIAL_BALANCES,
                     Capability.VIEW_REPORTS,
                     Capability.COMMENT_OR_FLAG,
+                    Capability.VIEW_FINANCE_RECEIPTS,
                 }
             ),
         ),

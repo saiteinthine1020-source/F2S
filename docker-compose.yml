@@ -16,10 +16,13 @@ services:
       F2S_IDENTITY_DIGEST_KEY: ${F2S_IDENTITY_DIGEST_KEY:?Set F2S_IDENTITY_DIGEST_KEY in .env}
       F2S_FRONTEND_ORIGIN: ${F2S_FRONTEND_ORIGIN:-http://127.0.0.1:5173}
       F2S_API_ALLOWED_HOSTS: ${F2S_API_ALLOWED_HOSTS:-["127.0.0.1","localhost"]}
+      F2S_PROTECTED_FILE_ROOT: ${F2S_PROTECTED_FILE_ROOT:-/var/lib/f2s/protected-files}
     ports:
       - "127.0.0.1:${F2S_API_HOST_PORT:-8000}:8000"
     networks:
       - data
+    volumes:
+      - protected_files:/var/lib/f2s/protected-files
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,3 +76,4 @@ networks:
 
 volumes:
   postgres_data:
+  protected_files:

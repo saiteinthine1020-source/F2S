@@ -2,11 +2,11 @@
 
 ## Purpose and boundary
 
-This catalogue defines the implemented Phase 1 audit vocabulary and evidence-writing
+This catalogue defines the implemented Phase 1 and Household Finance audit vocabulary and evidence-writing
 contract. Audit records are investigation evidence, not operational logs or a copy of the
-affected record. Query APIs, administration UI, retention automation, and external SIEM
-delivery remain deferred. Phase 2 finance codes below are an accepted design contract and
-become implemented only with their owning feature issues.
+affected record. Query APIs, administration UI, and external SIEM delivery remain deferred.
+Phase 2 finance codes become implemented with their owning feature issues; the protected
+receipt lifecycle and its retention cleanup are implemented by Issue #88.
 
 ## Evidence contract
 
@@ -32,8 +32,8 @@ therefore rolls back the consequential state change with the caller's transactio
 | Scope | `GLOBAL`, `WORKSPACE` |
 | Actor type | `SYSTEM`, `USER` |
 | Result | `SUCCEEDED`, `FAILED`, `DENIED` |
-| Module | Implemented: `IDENTITY_SECURITY`, `WORKSPACE_ACCESS`; Phase 2 contract: `HOUSEHOLD_FINANCE` |
-| Resource type | Implemented: `USER_ACCOUNT`, `SESSION`, `WORKSPACE`, `WORKSPACE_MEMBERSHIP`, `OWNERSHIP_TRANSFER`; Phase 2: `FINANCE_CATEGORY`, `FINANCIAL_EVENT`, `FINANCIAL_EVENT_REVIEW`, `PROTECTED_FILE` |
+| Module | `IDENTITY_SECURITY`, `WORKSPACE_ACCESS`, `HOUSEHOLD_FINANCE` |
+| Resource type | `USER_ACCOUNT`, `SESSION`, `WORKSPACE`, `WORKSPACE_MEMBERSHIP`, `OWNERSHIP_TRANSFER`, `FINANCE_CATEGORY`, `FINANCIAL_EVENT`, `FINANCIAL_EVENT_REVIEW`, `PROTECTED_FILE` |
 | Source | `API`, `BACKGROUND_JOB`, `SYSTEM` |
 | Context | `BOOTSTRAP`, `AUTHENTICATION`, `ACTIVATION`, `RECOVERY`, `MEMBERSHIP_ADMINISTRATION`, `OWNERSHIP_TRANSFER`, `WORKSPACE_SETTINGS` |
 | Safe reason | `INVALID_CREDENTIALS`, `RESOURCE_NOT_FOUND`, `ACCOUNT_INACTIVE`, `MEMBERSHIP_INACTIVE`, `WORKSPACE_INACTIVE`, `PERMISSION_DENIED`, `EXPIRED`, `REPLAY_DETECTED`, `REVOKED`, `VALIDATION_FAILED`, `STALE_VERSION`, `INVALID_STATE_TRANSITION`, `OWNERSHIP_INVARIANT` |
@@ -57,9 +57,13 @@ Adding a code is an intentional contract change with tests and catalogue review.
 submit arbitrary strings or metadata dictionaries.
 
 Phase 2 action codes are defined in §10 of the
-[Household Finance Design](27_Household_Finance_Design.md). They are not a claim of current
-runtime support. Finance audit evidence never stores money, source/payee, reference, notes,
-review or decision free text, filenames, file bytes, or before/after copies.
+[Household Finance Design](27_Household_Finance_Design.md). Runtime support is introduced by
+each owning feature issue. Issue #88 implements `FINANCIAL_RECEIPT_RESERVED`,
+`FINANCIAL_RECEIPT_QUARANTINED`, `FINANCIAL_RECEIPT_AVAILABLE`,
+`FINANCIAL_RECEIPT_LINKED`, `FINANCIAL_RECEIPT_REMOVED`, and
+`FINANCIAL_RECEIPT_DELETED_BY_RETENTION`. Finance audit evidence never stores money,
+source/payee, reference, notes, review or decision free text, filenames, file bytes, checksums,
+storage keys, or before/after copies.
 
 ## Correlation and privacy
 

@@ -2,6 +2,7 @@
 
 from enum import StrEnum
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Self
 from urllib.parse import urlsplit
 
@@ -48,6 +49,7 @@ class Settings(BaseSettings):
     identity_digest_key: SecretStr
     frontend_origin: str = "http://127.0.0.1:5173"
     api_allowed_hosts: tuple[str, ...] = ("127.0.0.1", "localhost", "testserver")
+    protected_file_root: Path = Path("protected-files")
 
     @field_validator("database_host")
     @classmethod

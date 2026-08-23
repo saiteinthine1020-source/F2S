@@ -51,6 +51,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Workspace-owned Advisor finance comments and flags on Approved events, with bounded
   confidential text, append-only attribution, idempotent creation, Admin-only flag
   resolution, optimistic concurrency, concealed isolation, and safe audit evidence.
+- Private expense-receipt reservations, strict PDF/JPEG/PNG validation, quarantine and
+  fail-closed malware scanning, server-generated storage keys, append-only event links,
+  authorised no-store downloads, removal history, and 24-hour failed-file cleanup.
 
 ### Security
 

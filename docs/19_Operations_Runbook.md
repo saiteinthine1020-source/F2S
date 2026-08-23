@@ -247,6 +247,28 @@ Email, Gemini, report renderer, telemetry exporter or storage integrations must 
 
 ## 20. Maintenance and change cadence
 
+### Protected receipt cleanup and scanner gate
+
+The protected-file root is a private mounted volume configured by
+`F2S_PROTECTED_FILE_ROOT`; it must not be served by the web server, shared as a public bucket,
+or included in application logs. Production starts fail-closed until an approved malware
+scanner adapter is configured and its health is verified. Operators never mark a file
+Available manually or bypass signature, checksum, quarantine, or scanner outcomes.
+
+A trusted cleanup worker expires overdue `PENDING` reservations, fails `QUARANTINED` uploads
+that have remained unscanned for 24 hours, and selects locked `FAILED` or `EXPIRED` rows whose
+`cleanup_after` is due. It removes the server-keyed object, transitions metadata to `DELETED`,
+and appends `FINANCIAL_RECEIPT_DELETED_BY_RETENTION`. Retry is safe when an object is already
+absent. Unexpected unreferenced objects, missing Available objects, checksum failures,
+scanner outages, or cleanup backlog are security/operations findings; preserve metadata and
+audit evidence, disable download on integrity doubt, and investigate without copying bytes,
+filenames, checksums, or storage keys into tickets or logs.
+
+Before deployment, verify the volume is writable only by the non-root API identity, is not
+inside a static/public path, has capacity alerts, and follows the approved backup/retention
+scope. Failed/quarantined content is cleaned 24 hours after failure; Available receipts are
+not automatically expired in Phase 2.
+
 | Cadence | Required review |
 | --- | --- |
 | Daily/automated | Availability, application/DB health, eligible backup age, WAL/copy status, disk/certificate critical alerts |

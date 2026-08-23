@@ -135,7 +135,12 @@ def test_receipt_lifecycle_is_workspace_scoped_append_only_and_safely_audited(
                     storage_key="c" * 64,
                     expires_at=datetime.now(UTC) - timedelta(seconds=1),
                 )
-                assert await receipts.list_receipts(advisor, event_id=approved_id) == (reserved,)
+                approved_receipts = await receipts.list_receipts(advisor, event_id=approved_id)
+                assert approved_receipts is not None
+                assert {item.id for item in approved_receipts} == {
+                    reserved.id,
+                    expired_receipt.id,
+                }
                 assert await receipts.list_receipts(advisor, event_id=pending_id) is None
                 assert await receipts.list_receipts(foreign, event_id=approved_id) is None
                 assert await receipts.list_receipts(contributor, event_id=pending_id) == (

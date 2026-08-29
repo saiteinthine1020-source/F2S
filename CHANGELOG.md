@@ -54,6 +54,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Private expense-receipt reservations, strict PDF/JPEG/PNG validation, quarantine and
   fail-closed malware scanning, server-generated storage keys, append-only event links,
   authorised no-store downloads, removal history, and 24-hour failed-file cleanup.
+- ADR-019 and aligned Phase 2 documentation defining the official finance ledger as
+  Approved Effective postings plus Approved Reversed originals, with exact reversal
+  conservation and explicit cross-period summary behavior.
 
 ### Security
 

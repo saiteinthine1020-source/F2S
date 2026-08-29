@@ -4,6 +4,9 @@
 - **Date:** 2026-08-13
 - **Decision owners:** F2S maintainers
 - **Applies from:** Phase 2 - Household Finance
+- **Superseded in part by:**
+  [ADR-019](ADR-019-include-reversed-originals-in-official-ledger.md) for the
+  official-dataset predicate only
 
 ## Context
 

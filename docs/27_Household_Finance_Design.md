@@ -4,8 +4,9 @@
 
 This document is the focused Phase 2 contract for categories, canonical financial events,
 approval, posting, corrections, Advisor reviews, receipts, filters, and monthly summaries.
-It implements [ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md) and inherits
-the exact numeric rules from [ADR-008](adr/ADR-008-safe-financial-numeric-storage.md), the
+It implements [ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md) as refined
+by [ADR-019](adr/ADR-019-include-reversed-originals-in-official-ledger.md), and inherits the
+exact numeric rules from [ADR-008](adr/ADR-008-safe-financial-numeric-storage.md), the
 workspace boundary from [ADR-012](adr/ADR-012-workspace-level-data-isolation.md), the role
 model from [ADR-013](adr/ADR-013-workspace-ownership-and-membership.md), and the module model
 from [ADR-016](adr/ADR-016-workspace-types-and-modules.md).
@@ -20,7 +21,8 @@ issue adds no application code, migration, route, or UI component.
 2. Every protected row has direct immutable `workspace_id` and same-workspace relationships.
 3. Amount is a positive exact magnitude; direction carries the sign.
 4. Approval status and posting status are separate and only their valid combinations persist.
-5. Only Approved effective postings enter an official dataset.
+5. The official ledger contains Approved Effective postings and Approved Reversed originals;
+   Pending, Rejected, and NotEffective records never enter it.
 6. Approved financial facts are append-only; reversal changes effect and archive changes
    discoverability.
 7. Contributor queries never receive restricted totals or equivalent indirect aggregates.
@@ -164,9 +166,9 @@ business occurred date. It cannot target itself, a reversal, a non-effective eve
 foreign event. One effective reversal may target an original. Correction links an optional
 replacement directly to the original. A later correction targets that replacement.
 
-Archive hides an event from default active browsing but never removes an Approved effective
+Archive hides an event from default active browsing but never removes an eligible Approved
 posting from official totals. Archived filters can retrieve it. Only reversal changes cash
-effect.
+effect, through the exact opposite event rather than by removing the original.
 
 The implemented lifecycle boundary serializes all three commands by locking the
 same-workspace original. The reversal copies the original positive magnitude and currency,
@@ -189,12 +191,13 @@ reconciling the operation ID and canonical links rather than issuing a different
 
 The Calculation/Data Quality owner exposes one reusable selector equivalent to:
 
-`workspace matches AND approval = APPROVED AND posting = EFFECTIVE`
+`workspace matches AND approval = APPROVED AND posting IN (EFFECTIVE, REVERSED)`
 
 plus authorised period/currency/domain filters. No route, frontend, dashboard, report,
-forecast, or AI module reimplements this rule. A reversal is itself effective and therefore
-neutralises the reversed original through exact addition. Archived effective events remain
-included.
+forecast, or AI module reimplements this rule. A Reversed original remains one signed ledger
+component; its opposite Effective reversal is another, so exact addition neutralises the
+pair. A consumer never negates or subtracts the original again. Pending, Rejected, and
+NotEffective rows remain excluded. Archive does not change eligibility.
 
 ## 7. Monthly summary and filter semantics
 
@@ -202,6 +205,13 @@ Business dates use `occurred_on`. A monthly bucket is the inclusive first day th
 exclusive first day of the next month in the selected workspace timezone. Since the event is
 a `DATE`, server timezone cannot move it between months. UTC timestamps order audit and
 creation activity only.
+
+Every selected original, reversal, and replacement belongs to the bucket containing its own
+`occurred_on`. A same-period original/reversal pair nets to zero in that month. A
+later-period reversal leaves the original in its earlier month, contributes the equal
+opposite amount in the later month, and brings the cumulative result to zero as of the later
+date. A replacement contributes once in its own period. Phase 2 does not retroactively
+restate an earlier period.
 
 The summary endpoint returns an array of currency buckets. Each bucket contains exact decimal
 strings for inflow, outflow, and net, its currency, `[from, to)` period, applied filters,

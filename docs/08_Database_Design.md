@@ -154,7 +154,9 @@ Key fields: UUID/workspace/actor/timestamps; `event_kind`; separate `cash_direct
 
 Rules:
 
-- Only `APPROVED` events contribute to official datasets; Contributor submissions begin `PENDING`.
+- The official ledger includes `APPROVED/EFFECTIVE` rows and
+  `APPROVED/REVERSED` originals exactly once; Contributor submissions begin `PENDING`, and
+  `PENDING`, `REJECTED`, and `NOT_EFFECTIVE` rows contribute nothing.
 - Approved amount, currency, direction, and occurrence date are immutable.
 - Reversal is a new opposite event in the same workspace/currency; it cannot reference itself.
 - Original history remains; an approved replacement is a separate posting.
@@ -169,7 +171,8 @@ Comments are append-only. Flags use `OPEN/RESOLVED` state with resolver evidence
 never change event approval, posting state, or official totals. The exact Phase 2 states,
 correction links, category requirement, and receipt lifecycle are governed by the
 [Household Finance Design](27_Household_Finance_Design.md) and
-[ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md).
+[ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md) and its official-ledger
+refinement in [ADR-019](adr/ADR-019-include-reversed-originals-in-official-ledger.md).
 
 ## 8. Entity catalogue: farming and funds
 

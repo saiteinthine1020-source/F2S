@@ -93,7 +93,7 @@ States: account `PENDING_ACTIVATION`, `ACTIVE`, `SUSPENDED`, `LOCKED`, `CLOSED`;
 | Replacement event | Corrected posting after reversal | Explicit link; new history |
 | Canonical event link | Unique domain-source to financial-event relationship | Prevents duplicate cash counting |
 | Approval status | `PENDING`, `APPROVED`, or `REJECTED` review state | Separate from posting effect |
-| Posting status | `NOT_EFFECTIVE`, `EFFECTIVE`, or `REVERSED` | Only Approved Effective postings enter official datasets |
+| Posting status | `NOT_EFFECTIVE`, `EFFECTIVE`, or `REVERSED` | Approved Effective rows and Reversed originals enter the official ledger once |
 | Financial event review | Attributed `COMMENT` or `FLAG` sidecar | Never changes event state or totals; Admin may resolve a flag |
 | Recognised revenue | Sale value recognised under sale policy | Not cash received |
 | Cash received | Sum of approved canonical receipt events | Each event once |
@@ -101,7 +101,9 @@ States: account `PENDING_ACTIVATION`, `ACTIVE`, `SUSPENDED`, `LOCKED`, `CLOSED`;
 
 Financial-record approval states are `PENDING`, `APPROVED`, and `REJECTED`; posting states
 are `NOT_EFFECTIVE`, `EFFECTIVE`, and `REVERSED`. Valid combinations and correction rules
-are defined by [ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md).
+are defined by [ADR-018](adr/ADR-018-approval-gated-canonical-financial-events.md), with
+official-ledger inclusion refined by
+[ADR-019](adr/ADR-019-include-reversed-originals-in-official-ledger.md).
 Contributor submissions begin `PENDING/NOT_EFFECTIVE`. A local/client `DRAFT` is not a
 committed event. Archive changes discoverability and never neutralises an Approved posting.
 

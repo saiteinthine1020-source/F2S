@@ -51,6 +51,7 @@ This index identifies the authoritative F2S documentation, its delivery phase, a
 | [ADR-015: Use Controlled Bootstrap, Activation, and Recovery Lifecycles](adr/ADR-015-bootstrap-activation-and-recovery.md) | Defines first setup, member activation, and recovery boundaries. | Approved |
 | [ADR-016: Model Workspace Type Separately from Enabled Modules](adr/ADR-016-workspace-types-and-modules.md) | Defines workspace types, module configuration, and change safety. | Approved |
 | [ADR-018: Use Approval-Gated Canonical Financial Events and Append-Only Corrections](adr/ADR-018-approval-gated-canonical-financial-events.md) | Defines one canonical cash event, separate approval/posting states, official-dataset eligibility, and history-preserving correction. | Approved |
+| [ADR-019: Include Reversed Originals in the Official Finance Ledger](adr/ADR-019-include-reversed-originals-in-official-ledger.md) | Refines official-ledger eligibility so reversed originals and their opposite reversals reconcile exactly with explicit period semantics. | Approved |
 | [GitHub Milestones](project_management/GitHub_Milestones.md) | Defines all 12 delivery milestones. | Baseline |
 | [First 20 GitHub Issues](project_management/First_20_GitHub_Issues.md) | Proposes the first ordered, independently reviewable issues. | Baseline |
 | [Repository Initialisation](project_management/Repository_Initialisation.md) | Provides exact commands for local Git and GitHub initialisation. | Baseline |

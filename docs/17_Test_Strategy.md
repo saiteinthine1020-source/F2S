@@ -205,6 +205,13 @@ Every performance/offline report records shaping tool/version and the exact tran
 
 Canonical-event fixtures span finance, farming costs, harvests, sales, remittances, debts, receivables, payments, allocations, reversals, partial payments, overpayment policy, cancellations, and archives. They prove one real-world event contributes exactly once to cash flow and relevant balances with zero unexplained smallest-unit difference.
 
+Finance-ledger fixtures apply the shared ADR-019 selector and prove that an Approved
+Reversed original and its Approved Effective opposite are each selected once. They cover
+same-period zero, cross-period opposite monthly effects with cumulative zero, an optional
+replacement contributing once, archive invariance, currency separation, and exclusion of
+Pending, Rejected, and NotEffective rows. No test or consumer subtracts a reversed original
+a second time.
+
 ## 10. Workspace authorisation and isolation strategy
 
 Every protected resource family receives positive and negative tests with at least two workspaces, Admin, Contributor, and Advisor users, a multi-workspace user with different roles, and inactive membership.

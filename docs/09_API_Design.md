@@ -364,6 +364,13 @@ terminal approval state, changes default discoverability, and never changes appr
 posting state. Therefore an archived effective event remains in official datasets. Only a
 reversal neutralises an Approved posting.
 
+Official consumers use the shared selector defined by
+[ADR-019](adr/ADR-019-include-reversed-originals-in-official-ledger.md): same-workspace
+`APPROVED/EFFECTIVE` rows and `APPROVED/REVERSED` originals are each selected once. The
+opposite reversal neutralises its original through signed addition; consumers do not remove
+or negate the original a second time. Pending, Rejected, and NotEffective rows remain
+excluded.
+
 The repository revalidates current authority, locks the same-workspace original, compares
 the version, and rechecks eligibility before writing. Original-state change, reversal,
 optional replacement, archive evidence, bounded audit action, and terminal idempotency
